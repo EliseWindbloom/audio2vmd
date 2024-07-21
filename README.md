@@ -9,7 +9,7 @@ Completely automatically convert audio to vmd lips data using python cmd/automat
 - Voice detection and seperation
   - Automatically detects vocals from songs/background sounds and seperates the vocals to a wav file before conversion
 - Spilting long audio
-  - Automatically splits audio if it's longer 5 mintues, while also avoiding to cut audio in the middle of talking. This allows you to not worry about the 20,000 frames limit of MMD.
+  - Automatically splits audio if it's longer than 5 mintues, while also avoiding to cut audio in the middle of talking. This allows you to not worry about the 20,000 frames limit of MMD.
 - Optimized lips frames
   - Automatically calulate and delete unneeded frames to make the filesize much smaller and allow you to load longer files into MMD.
 - Batch Processing
