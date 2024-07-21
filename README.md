@@ -13,7 +13,7 @@ Completely automatically convert audio to vmd lips data using python cmd/automat
 - Optimized lips frames
   - Automatically calulate and delete unneeded frames to make the filesize much smaller and allow you to load longer files into MMD.
 - Batch Processing
-  - Can accept multiple audio files at once and convert them all each to a vmd file.
+  - Can accept multiple audio files at once and convert them all each to a different vmd file.
 - Config file
   - Simple config file allows you to change settings. Currently you can change the effect of the amount for each vowel (A, I, O, U) to make talking much more pronounced.
 - Ready for MMD
