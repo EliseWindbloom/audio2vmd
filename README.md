@@ -7,7 +7,7 @@ Completely automatically convert audio to vmd lips data using python cmd/automat
 - **One-click installer**
   - One-click installer batch file to install audio2vmd on your computer (may need more development)
 - **Optional GUI**
-  - Simple GUI interface to select audio files, change the settings of the config file, and run conversions
+  - Fast and simple GUI interface to select audio files, change the settings of the config file, and run conversions
 - **Audio file types**
   - Likely accepts all major audio file types for conversion. Will automatically convert them into wav files for this program and for MMD uses
 - **Audio extraction from videos**
