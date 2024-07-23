@@ -1,350 +1,174 @@
-# audio2vmd Documentation/Wiki
+# audio2vmd Documentation
 
 ## Table of Contents
 1. [Introduction](#introduction)
-2. [Usage](#usage)
-3. [Usage (command-line)](#usage_cli)
-#### Code Wiki
-4. [Functions](#functions)
-   - [extract_vocals](#extract_vocals)
-   - [get_audio_duration](#get_audio_duration)
-   - [analyze_audio_for_vocals](#analyze_audio_for_vocals)
-   - [detect_audio_format](#detect_audio_format)
-   - [convert_audio_to_wav](#convert_audio_to_wav)
-   - [load_config](#load_config)
-   - [print_config](#print_config)
-   - [split_audio](#split_audio)
-   - [detect_silence](#detect_silence)
-   - [db_to_float](#db_to_float)
-   - [batch_process](#batch_process)
-   - [adjust_vowel_weights](#adjust_vowel_weights)
-   - [audio_to_vmd](#audio_to_vmd)
-   - [sanitize_directory_path](#sanitize_directory_path)
-5. [Classes](#classes)
-   - [VMDMorphFrame](#vmdmorphframe)
-   - [VMDFile](#vmdfile)
-   - [CommentedConfig](#commentedconfig)
-
+2. [Features](#features)
+3. [Installation](#installation)
+4. [Usage](#usage)
+5. [Configuration](#configuration)
+6. [Functions](#functions)
+7. [Classes](#classes)
 
 ## Introduction
 
-The `audio2vmd.py` script is designed to convert audio files into VMD (Vocaloid Motion Data) files for lip-syncing in 3D animation software. It processes audio to detect vowel sounds and generates corresponding mouth movements.
+audio2vmd is a Python-based tool that automatically converts audio files to VMD (Vocaloid Motion Data) lip sync data for use in MikuMikuDance (MMD) or MikuMikuMoving (MMM). It can process various audio formats, extract vocals, and generate optimized lip sync data for 3D character animations.
+
+## Features
+
+- **Automatic Audio to VMD conversion**: Creates lip-synced VMD files from audio input.
+- **One-click installer**: Easy installation via a batch file.
+- **Optional GUI**: Simple interface for file selection and configuration.
+- **Multiple audio format support**: Accepts various audio and video file formats.
+- **Audio extraction from videos**: Can extract audio from video files for processing.
+- **Voice detection and separation**: Automatically detects and separates vocals from background sounds.
+- **Long audio splitting**: Splits audio files longer than 5 minutes to work within MMD's frame limit.
+- **Optimized lip sync**: Calculates and removes unnecessary frames to reduce file size.
+- **Batch processing**: Can process multiple audio files in one go.
+- **Configurable**: Adjust vowel intensities and other settings via a config file.
+- **MMD-ready output**: Converts audio to WAV format for use with the generated VMD file.
+
+## Installation
+
+### Automatic Installation
+1. Download and install [Python](https://www.python.org/downloads/windows/).
+2. Download the latest version of [audio2vmd](https://github.com/EliseWindbloom/audio2vmd/archive/refs/heads/main.zip).
+3. Unzip audio2vmd and run "install.bat" to install automatically.
+
+### Manual Installation
+If you prefer manual installation, use the following commands:
+
+```
+cd audio2vmd
+python -m venv venv
+call venv\Scripts\activate.bat
+pip install pydub==0.25.1 PyYAML==6.0.1 tqdm==4.66.4 spleeter==2.4.0
+pip install spleeter==2.3.2
+cd..
+```
 
 ## Usage
 
-WIP
+### GUI Method
+1. Double-click on "Audio to VMD" batch file to launch the GUI.
+2. Select audio files, adjust settings, and run conversions.
 
-## Usage (command-line)
+### Drag & Drop Method
+Drag and drop audio or video files onto the "Audio to VMD" batch file to convert them to VMD files.
 
-To use the script, run it from the command line with the following syntax:
+### Command Line Usage
+Activate the virtual environment and use the following syntax:
 
 ```
 python audio2vmd.py [input_files] [options]
 ```
 
-**Options:**
+Options:
 - `--output`, `-o`: Output directory for VMD files (default: "output")
 - `--model`, `-m`: Model name for VMD file (default: "Model")
 - `--config`, `-c`: Path to configuration file (default: "config.yaml")
 
-**Examples:**
+Examples:
 ```
 python audio2vmd.py input.mp3
 python audio2vmd.py input1.mp3 input2.wav --output my_output --model 'My Model'
 python audio2vmd.py input_directory --output output_directory
 ```
 
-For more detailed usage instructions, run:
+You can also provide a text file containing a list of audio file paths:
 ```
-python audio2vmd.py --help
+python audio2vmd.py list_of_audio_files.txt --output "C:\files\vmd\"
 ```
+
+## Configuration
+
+The `config.yaml` file allows you to adjust various settings:
+
+- `a_weight_multiplier`: Intensity of the 'あ' (A) sound
+- `i_weight_multiplier`: Intensity of the 'い' (I) sound
+- `o_weight_multiplier`: Intensity of the 'お' (O) sound
+- `u_weight_multiplier`: Intensity of the 'う' (U) sound
+- `max_duration`: Maximum duration for splitting audio in seconds (0 to disable splitting)
+- `optimize_vmd`: Whether to optimize the VMD file (recommended to keep as true)
 
 ## Functions
 
-### extract_vocals
-
-```python
-def extract_vocals(audio_path, wav_path)
-```
-
+### extract_vocals(audio_path, wav_path)
 Extracts vocals from an audio file using the Spleeter library.
 
-**Parameters:**
-- `audio_path` (str): Path to the input audio file.
-- `wav_path` (str): Path where the extracted vocals will be saved as a WAV file.
+### get_audio_duration(audio_path, return_as_text=False)
+Gets the duration of an audio file.
 
-**Returns:**
-- str: Path to the saved WAV file containing extracted vocals.
-
-**Notes:**
-- Uses the Spleeter library with a "2stems" separator.
-- Creates necessary directories if they don't exist.
-
-### get_audio_duration
-
-```python
-def get_audio_duration(audio_path, return_as_text=False)
-```
-
-Get the duration of an audio file.
-
-**Parameters:**
-- `audio_path` (str): Path to the audio file.
-- `return_as_text` (bool): If True, returns the duration formatted as a readable string.
-
-**Returns:**
-- float or str: Duration of the audio file in seconds, or a formatted string if return_as_text is True.
-
-**Notes:**
-- Uses the pydub library to load and analyze the audio file.
-- When `return_as_text` is True, it formats the duration as "X Hours, Y Minutes, Z Seconds".
-
-### analyze_audio_for_vocals
-
-```python
-def analyze_audio_for_vocals(audio_path)
-```
-
+### analyze_audio_for_vocals(audio_path)
 Analyzes an audio file to detect the presence of vocals and determine if it's a vocals-only file.
 
-**Parameters:**
-- `audio_path` (str): Path to the audio file to analyze.
-
-**Returns:**
-- tuple: (has_vocals, is_vocals_only)
-  - `has_vocals` (bool): True if significant vocals are detected in the audio.
-  - `is_vocals_only` (bool): True if the audio contains only vocals with minimal accompaniment.
-
-**Notes:**
-- Uses the Spleeter library to separate vocals and accompaniment.
-- Adjusts thresholds for vocal detection and vocals-only classification.
-
-### detect_audio_format
-
-```python
-def detect_audio_format(audio_path)
-```
-
+### detect_audio_format(audio_path)
 Detects the format of an audio file.
 
-**Parameters:**
-- `audio_path` (str): Path to the audio file.
-
-**Returns:**
-- str: The detected audio format (e.g., "mp3", "wav").
-
-**Notes:**
-- Uses pydub to detect the format.
-- Falls back to checking file extension if pydub fails.
-
-### convert_audio_to_wav
-
-```python
-def convert_audio_to_wav(audio_path, output_wav_path)
-```
-
+### convert_audio_to_wav(audio_path, output_wav_path)
 Converts an audio file to WAV format.
 
-**Parameters:**
-- `audio_path` (str): Path to the input audio file.
-- `output_wav_path` (str): Path where the converted WAV file will be saved.
+### load_config(config_file='config.yaml')
+Loads configuration from a YAML file or creates a default configuration.
 
-**Notes:**
-- Ensures the output file has a ".wav" extension.
-- Creates necessary directories if they don't exist.
-- Uses pydub for audio conversion.
-
-### load_config
-
-```python
-def load_config(config_file='config.yaml')
-```
-
-Loads configuration from a YAML file or creates a default configuration if the file doesn't exist.
-
-**Parameters:**
-- `config_file` (str): Path to the configuration file. Default is 'config.yaml'.
-
-**Returns:**
-- dict: Loaded configuration or default configuration.
-
-**Notes:**
-- Creates a default configuration file if it doesn't exist.
-- Uses PyYAML for YAML parsing.
-
-### print_config
-
-```python
-def print_config(config)
-```
-
+### print_config(config)
 Prints the current configuration to the console.
 
-**Parameters:**
-- `config` (dict): Configuration dictionary to print.
+### split_audio(audio_path, output_dir="", secondary_audio_path="", original_is_wav_filetype=True, max_duration=300, silence_threshold=-60, min_silence_length=300)
+Splits an audio file into multiple parts, each not exceeding a specified maximum duration.
 
-### split_audio
-
-```python
-def split_audio(audio_path, output_dir="", max_duration=300, silence_threshold=-40, min_silence_length=300)
-```
-
-Split an audio file into multiple parts, each not exceeding a specified maximum duration.
-
-**Parameters:**
-- `audio_path` (str): Path to the input audio file.
-- `output_dir` (str): Directory to save the split audio parts. If empty, uses the same directory as the input file.
-- `max_duration` (int): Maximum duration of each part in seconds. Default is 300 (5 minutes).
-- `silence_threshold` (int): The threshold (in dB) below which to consider as silence. Default is -40.
-- `min_silence_length` (int): Minimum length of silence to be considered for splitting, in milliseconds. Default is 300 (0.3 seconds).
-
-**Returns:**
-- list: A list of file paths to the split audio parts.
-
-**Notes:**
-- Attempts to split the audio at silent points to avoid cutting during speech.
-- Searches backwards from the max_duration point to find a suitable silence for splitting.
-- If no silence is found, it will split at the max_duration point.
-- The function will always keep the first 5 seconds of each segment intact and will not split within this period.
-- Adjust silence_threshold and min_silence_length to fine-tune silence detection for your specific audio.
-- Uses the pydub library to handle audio processing.
-
-**Example usage:**
-```python
-split_audio("path/to/audio.mp3", output_dir="path/to/output", max_duration=300, silence_threshold=-45, min_silence_length=500)
-```
-
-### detect_silence
-
-```python
-def detect_silence(audio_segment, min_silence_len=1000, silence_thresh=-40, seek_step=1)
-```
-
+### detect_silence(audio_segment, min_silence_len=1000, silence_thresh=-40, seek_step=1)
 Detects silent sections in an audio segment.
 
-**Parameters:**
-- `audio_segment` (AudioSegment): The audio segment to analyze.
-- `min_silence_len` (int): Minimum length of silence (in ms) to be detected. Default is 1000ms.
-- `silence_thresh` (int): The threshold (in dB) below which to consider as silence. Default is -40dB.
-- `seek_step` (int): Step size for seeking through the audio. Default is 1.
-
-**Returns:**
-- list: A list of [start, end] pairs in milliseconds indicating silent sections.
-
-### db_to_float
-
-```python
-def db_to_float(db, using_amplitude=True)
-```
-
+### db_to_float(db, using_amplitude=True)
 Converts decibels to float values.
 
-**Parameters:**
-- `db` (float): The decibel value to convert.
-- `using_amplitude` (bool): If True, converts amplitude dB. If False, converts power dB. Default is True.
+### process_single_file(input_file, output_dir, model_name, config)
+Processes a single audio file to generate VMD data.
 
-**Returns:**
-- float: The converted value.
+### batch_process(input_files, output_dir, model_name, config, global_start_time, item_start_time, audio_source_files_count=1)
+Processes multiple audio files in batch.
 
-### batch_process
+### adjust_vowel_weights(weights, config)
+Adjusts vowel weights for more natural mouth movements using config values.
 
-```python
-def batch_process(input_files, output_dir, model_name, config)
-```
+### audio_to_vmd(input_audio, vmd_file, model_name, config)
+Converts an audio file to VMD file format.
 
-Processes multiple audio files and generates VMD files.
+### get_file_extension(filepath)
+Returns the file extension of the given filepath.
 
-**Parameters:**
-- `input_files` (list): List of input audio file paths.
-- `output_dir` (str): Directory to save the output VMD files.
-- `model_name` (str): Name of the model for the VMD file.
-- `config` (dict): Configuration dictionary.
-
-**Notes:**
-- Uses tqdm for progress tracking.
-- Splits audio files if necessary and processes each part.
-
-### adjust_vowel_weights
-
-```python
-def adjust_vowel_weights(weights, config)
-```
-
-Adjusts vowel weights for more natural mouth movements using configuration values.
-
-**Parameters:**
-- `weights` (dict): Dictionary of vowel weights.
-- `config` (dict): Configuration dictionary with weight multipliers.
-
-**Returns:**
-- dict: Adjusted vowel weights.
-
-### audio_to_vmd
-
-```python
-def audio_to_vmd(input_audio, vmd_file, model_name, config)
-```
-
-Converts an audio file to a VMD (Vocaloid Motion Data) file for lip-syncing.
-
-**Parameters:**
-- `input_audio` (str): Path to the input audio file.
-- `vmd_file` (str): Path where the output VMD file will be saved.
-- `model_name` (str): Name of the model for the VMD file.
-- `config` (dict): Configuration dictionary.
-
-**Notes:**
-- Extracts vocals if necessary.
-- Converts audio to WAV format if needed.
-- Processes audio to detect vowel sounds and generate corresponding mouth movements.
-- Optimizes VMD data before saving.
-
-### sanitize_directory_path
-
-```python
-def sanitize_directory_path(path)
-```
-
+### sanitize_directory_path(path)
 Sanitizes a directory path by removing invalid characters.
-
-**Parameters:**
-- `path` (str): The directory path to sanitize.
-
-**Returns:**
-- str: The sanitized directory path.
 
 ## Classes
 
 ### VMDMorphFrame
-
 Represents a morph frame in the VMD file format.
 
-**Attributes:**
-- `name` (str): Name of the morph.
-- `frame` (int): Frame number.
-- `weight` (float): Weight of the morph.
+#### Attributes:
+- `name`: Name of the morph
+- `frame`: Frame number
+- `weight`: Weight of the morph
 
-**Methods:**
-- `to_bytes()`: Converts the frame data to bytes for file writing.
+#### Methods:
+- `to_bytes()`: Converts the frame data to bytes for file writing
 
 ### VMDFile
-
 Represents a VMD (Vocaloid Motion Data) file.
 
-**Attributes:**
-- `model_name` (str): Name of the model.
-- `morph_frames` (list): List of VMDMorphFrame objects.
+#### Attributes:
+- `model_name`: Name of the model
+- `morph_frames`: List of VMDMorphFrame objects
 
-**Methods:**
-- `add_morph_frame(name, frame, weight)`: Adds a new morph frame to the file.
-- `save(filename)`: Saves the VMD data to a file.
+#### Methods:
+- `add_morph_frame(name, frame, weight)`: Adds a new morph frame to the file
+- `save(filename)`: Saves the VMD data to a file
 
 ### CommentedConfig
-
 A subclass of OrderedDict that allows adding comments to configuration items.
 
-**Methods:**
-- `__setitem__(key, value)`: Sets an item with an optional comment.
-- `items()`: Returns items with their comments.
+#### Methods:
+- `__setitem__(key, value)`: Sets an item with an optional comment
+- `items()`: Returns items with their comments
 
-
+This documentation provides a comprehensive overview of the audio2vmd tool, its features, installation process, usage instructions, and detailed explanations of its functions and classes. Users can refer to this document for guidance on how to use and customize the tool for their lip-syncing needs in MMD or MMM projects.
