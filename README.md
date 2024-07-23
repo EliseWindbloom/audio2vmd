@@ -69,7 +69,7 @@ Completely automatically convert audio to vmd lips data using python cmd/automat
 - Possibly a window binary exe file for ease of use (I will have to research how to do this first though)
  
 ## Credits
-Nawota for the c# Lipsync plugin that this project is loosely based on. 
+Nawota for the c# Lipsync plugin that this project is loosely based on.  
 This repository was first inspired by the original automatic lipsync guide by [Vayanis](https://www.youtube.com/watch?v=ozKBYGiyPJE)  
 [Parse VMD in python guide by crossous](https://www.jianshu.com/p/ae312fb53fc3)  
 [nuekaze](https://github.com/nuekaze/VMD-motion-extract/tree/master) for unpacking/repacking VMD python code (though as csv format)  
