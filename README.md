@@ -6,6 +6,8 @@ Completely automatically convert audio to vmd lips data using python cmd/automat
   - Automatically creates a lip-synced VMD for MikuMikuDance/MikuMikuMoving from a audio file
 - Audio file types
   - Likely accepts all major audio file types for conversion. Will automatically convert them into wav files for this program and for MMD uses.
+- Audio extraction from videos
+  - Can also accept video files such as mp4 or mkv as input, and will automatically extract the audio from them for conversion. 
 - Voice detection and seperation
   - Automatically detects vocals from songs/background sounds and seperates the vocals to a wav file before conversion
 - Spilting long audio
