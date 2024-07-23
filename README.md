@@ -35,20 +35,30 @@ Completely automatically convert audio to vmd lips data using python cmd/automat
 `wip`
 
 # Usage
-You have two choices on how to use it:
+**You have two ways you can easily use it:**
   - drag & drop audio files into the "Audio to VMD" bat file to convert them to lipsynced vmd files. Will also accept mp4/mkv video files.
   - double click on "Audio to VMD" bat file to launch the GUI where you can easily select audio files, run batch conversions and change settings. Will also accept mp4/mkv video files.
+
+**Alternatively, you can call it with command-line from the vitural environment:**
+  - using audio2vmd.py for command-line usage:
+  ```python
+  cd audio2vmd  
+  call venv\Scripts\activate.bat
+  python audio2vmd.py
+  ```
+  - using audio2vmd_gui.py to use the simple GUI:
+  ```python
+  cd audio2vmd  
+  call venv\Scripts\activate.bat
+  python audio2vmd_gui.py
+  ```
  
 ## Planned features
 - Possibly a window binary exe file for ease of use (I will have to research how to do this first though)
  
 ## Credits
-Nawota for the c# Lipsync plugin that this project is loosely based on.
-
-This repository was first inspired by the original automatic lipsync guide by [Vayanis](https://www.youtube.com/watch?v=ozKBYGiyPJE)
-
-[Parse VMD in python guide by crossous](https://www.jianshu.com/p/ae312fb53fc3)
-
-[nuekaze](https://github.com/nuekaze/VMD-motion-extract/tree/master) for unpacking/repacking VMD python code (though as csv format)
-
-[VMD file format wiki](https://mikumikudance.fandom.com/wiki/VMD_file_format)
+Nawota for the c# Lipsync plugin that this project is loosely based on. 
+This repository was first inspired by the original automatic lipsync guide by [Vayanis](https://www.youtube.com/watch?v=ozKBYGiyPJE)  
+[Parse VMD in python guide by crossous](https://www.jianshu.com/p/ae312fb53fc3)  
+[nuekaze](https://github.com/nuekaze/VMD-motion-extract/tree/master) for unpacking/repacking VMD python code (though as csv format)  
+[VMD file format wiki](https://mikumikudance.fandom.com/wiki/VMD_file_format)  
