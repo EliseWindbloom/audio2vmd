@@ -7,23 +7,23 @@ Completely automatically convert audio to vmd lips data using python cmd/automat
 - **One-click installer**
   - One-click installer batch file to install audio2vmd on your computer (may need more development)
 - **Optional GUI**
-  - Simple GUI interface to select audio files, change the settings of the config file, and run conversions. 
+  - Simple GUI interface to select audio files, change the settings of the config file, and run conversions
 - **Audio file types**
-  - Likely accepts all major audio file types for conversion. Will automatically convert them into wav files for this program and for MMD uses.
+  - Likely accepts all major audio file types for conversion. Will automatically convert them into wav files for this program and for MMD uses
 - **Audio extraction from videos**
-  - Can also accept video files such as mp4 or mkv as input, and will automatically extract the audio from them for conversion. 
+  - Can also accept video files such as mp4 or mkv as input, and will automatically extract the audio from them for conversion
 - **Voice detection and seperation**
   - Automatically detects vocals from songs/background sounds and seperates the vocals to a wav file before conversion
 - **Spilting long audio**
   - Automatically splits audio if it's longer than 5 mintues, while also avoiding to cut audio in the middle of talking. This allows you to not worry about the 20,000 frames limit of MMD.
 - **Optimized lips frames**
-  - Automatically calulate and delete unneeded frames to make the filesize much smaller and allow you to load longer files into MMD.
+  - Automatically calulate and delete unneeded frames to make the filesize much smaller and allow you to load longer files into MMD
 - **Batch Processing**
-  - Can accept multiple audio files at once and convert them all each to a different vmd file.
+  - Can accept multiple audio files at once and convert them all each to a different vmd file
 - **Config file**
   - Simple config file allows you to change settings. Currently you can change the effect of the amount for each vowel (A, I, O, U) to make talking much more pronounced, as well as the spliting duration and if to use optimization.
 - **Ready for MMD**
-  - Will automatically convert audio to wav format if it isn't in wav already, this will be paired with the VMD, and ready to launch with MMD/MMM.(This won't move/delete your original audio)
+  - Will automatically convert audio to wav format if it isn't in wav already. Use this with the VMD, and ready to launch with MMD/MMM.(This won't move/delete your original audio)
  
 # Installing audio2vmd
 ## Install automatically using 1-click installer batch file
