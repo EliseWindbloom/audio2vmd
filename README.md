@@ -35,18 +35,30 @@ Completely automatically convert audio to vmd lips data using python cmd/automat
 `wip`
 
 # Usage
-**You have two ways you can easily use it:**
-  - drag & drop audio files into the "Audio to VMD" bat file to convert them to lipsynced vmd files. Will also accept mp4/mkv video files.
-  - double click on "Audio to VMD" bat file to launch the GUI where you can easily select audio files, run batch conversions and change settings. Will also accept mp4/mkv video files.
+**You have two ways you can easily use audio2vmd:**
+  - Drag & drop audio files into the "Audio to VMD" bat file to convert them to lipsynced vmd files. This will also accept mp4/mkv video files.
+    
+  - Double-click on "Audio to VMD" bat file to launch the GUI where you can easily select audio files, run batch conversions and change settings. This will also accept mp4/mkv video files.
 
-**Alternatively, you can call it with command-line from the vitural environment:**
-  - using audio2vmd.py for command-line usage:
+**Alternatively, you can call it with command-line from the vitural environment:**  
+- Using audio2vmd.py for command-line usage:  
   ```python
   cd audio2vmd  
   call venv\Scripts\activate.bat
-  python audio2vmd.py
-  ```
-  - using audio2vmd_gui.py to use the simple GUI:
+  python audio2vmd.py input_audio.mp3
+  ````
+  - To convert mulitple files at once:  
+  `python audio2vmd.py input1.mp3 input2.mp3 --output "C:\files\vmd\"` 
+
+  - You can also give audo2vmd.py a plain textfile containing a list of audio files to convert(have one file path on each line):  
+    `python list_of_audio_files.txt --output "C:\files\vmd\"`
+    
+  - You can optinally add the output folder and name of model the vmd is for as well:  
+    `python mysong.mp4 --output "C:\files\vmd\" --model "My Model Name"`
+    
+  - You can also edit the **audio2vmd\config.yaml** file in a text editor to change some of the settings.
+    
+- Using audio2vmd_gui.py to use the simple GUI:  
   ```python
   cd audio2vmd  
   call venv\Scripts\activate.bat
