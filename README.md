@@ -80,9 +80,6 @@ cd..
 ## GUI Preview
 ![gui1](audio2vmd/img/gui1.png)
  
-## Planned features
-- Possibly a window binary exe file for ease of use (I will have to research how to do this first though)
- 
 ## Credits
 Nawota for the c# Lipsync plugin that this project is loosely based on.  
 This repository was first inspired by the original automatic lipsync guide by [Vayanis](https://www.youtube.com/watch?v=ozKBYGiyPJE)  
