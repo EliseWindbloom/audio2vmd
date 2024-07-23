@@ -4,6 +4,10 @@ Completely automatically convert audio to vmd lips data using python cmd/automat
 # Features
 - **Automatic Audio to VMD conversion**
   - Automatically creates a lip-synced VMD for MikuMikuDance/MikuMikuMoving from a audio file
+- **One-click installer**
+  - One-click installer batch file to install audio2vmd on your computer (may need more development)
+- **Optional GUI**
+  - Simple GUI interface to select audio files, change the settings of the config file, and run conversions. 
 - **Audio file types**
   - Likely accepts all major audio file types for conversion. Will automatically convert them into wav files for this program and for MMD uses.
 - **Audio extraction from videos**
@@ -21,9 +25,30 @@ Completely automatically convert audio to vmd lips data using python cmd/automat
 - **Ready for MMD**
   - Will automatically convert audio to wav format if it isn't in wav already, this will be paired with the VMD, and ready to launch with MMD/MMM.(This won't move/delete your original audio)
  
+# Installing audio2vmd
+## Install automatically using 1-click installer batch file
+1) Download and install [Python](https://www.python.org/downloads/windows/)
+2) Download latest version of [audio2vmd](https://github.com/EliseWindbloom/audio2vmd/archive/refs/heads/main.zip)
+3) Unzip audio2vmd and run "install.bat" to install automatically, this may take awhile to download all required files.
+
+## Manually install
+`wip`
+
+# Usage
+You have two choices on how to use it:
+  - drag & drop audio files into the "Audio to VMD" bat file to convert them to lipsynced vmd files. Will also accept mp4/mkv video files.
+  - double click on "Audio to VMD" bat file to launch the GUI where you can easily select audio files, run batch conversions and change settings. Will also accept mp4/mkv video files.
+ 
 ## Planned features
-- Drag-and-drop audio to batch file to automatically convert it to a lipsynced vmd (it will follow any settings in the config file). 
-- One-click installer batch file to install on your computer (hopefully though, I'm still learning about python environments)
-- Optional Simple GUI interface to select audio files and change the settings of the config file.
 - Possibly a window binary exe file for ease of use (I will have to research how to do this first though)
  
+## Credits
+Nawota for the c# Lipsync plugin that this project is loosely based on.
+
+This repository was first inspired by the original automatic lipsync guide by [Vayanis](https://www.youtube.com/watch?v=ozKBYGiyPJE)
+
+[Parse VMD in python guide by crossous](https://www.jianshu.com/p/ae312fb53fc3)
+
+[nuekaze](https://github.com/nuekaze/VMD-motion-extract/tree/master) for unpacking/repacking VMD python code (though as csv format)
+
+[VMD file format wiki](https://mikumikudance.fandom.com/wiki/VMD_file_format)
