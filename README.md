@@ -33,8 +33,16 @@ Completely automatically convert audio to vmd lips data using python cmd/automat
 2) Download latest version of [audio2vmd](https://github.com/EliseWindbloom/audio2vmd/archive/refs/heads/main.zip)
 3) Unzip audio2vmd and run "install.bat" to install automatically, this may take awhile to download all the required files.
 
-## Manually install
-`wip`
+## Installing manually 
+If you would like to manually install it instead, here are the commands for command line:
+```
+cd audio2vmd
+python -m venv venv
+call venv\Scripts\activate.bat
+pip install pydub==0.25.1 PyYAML==6.0.1 tqdm==4.66.4 spleeter==2.4.0
+pip install spleeter==2.3.2
+cd..
+```
 
 # Usage
 **You have two ways you can easily use audio2vmd:**
