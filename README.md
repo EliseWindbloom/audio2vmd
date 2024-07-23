@@ -25,7 +25,7 @@ Completely automatically convert audio to vmd lips data using python cmd/automat
 - **Config file**
   - Simple config file allows you to change settings. Currently you can change the effect of the amount for each vowel (A, I, O, U) to make talking much more pronounced, as well as the spliting duration and if to use optimization.
 - **Ready for MMD**
-  - Will automatically convert audio to wav format if it isn't in wav already. Use this with the VMD, and ready to launch with MMD/MMM.(This won't move/delete your original audio)
+  - Will automatically convert audio to wav format if it isn't in wav already. Combined with the VMD, they're ready to launch with MMD/MMM.(This won't move/delete your original audio)
  
 # Installing audio2vmd
 ## Install automatically using 1-click installer batch file
