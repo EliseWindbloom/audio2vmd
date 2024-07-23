@@ -77,7 +77,9 @@ cd..
   python audio2vmd_gui.py
   ```
 
-## GUI Preview
+## GUI Preview / Video Demonstration
+- Video: "[audio2vmd demonstration](https://vimeo.com/989158449)"
+  
 ![gui1](audio2vmd/img/gui1.png)
  
 ## Credits
