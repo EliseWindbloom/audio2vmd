@@ -36,6 +36,8 @@ Completely automatically convert audio to vmd lips data using python cmd/automat
 ## Installing manually 
 If you would like to manually install it instead, here are the commands for command line:
 ```
+git clone https://github.com/EliseWindbloom/audio2vmd.git
+cd audio2vmd
 cd audio2vmd
 python -m venv venv
 call venv\Scripts\activate.bat
