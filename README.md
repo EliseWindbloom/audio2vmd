@@ -56,7 +56,7 @@ Completely automatically convert audio to vmd lips data using python cmd/automat
   - You can optinally add the output folder and name of model the vmd is for as well:  
     `python mysong.mp4 --output "C:\files\vmd\" --model "My Model Name"`
     
-  - You can also edit the **audio2vmd\config.yaml** file in a text editor to a few of the settings.
+  - You can also edit the **audio2vmd\config.yaml** file in a text editor to edit a few of the settings.
     
 - Using audio2vmd_gui.py to use the simple GUI:  
   ```python
