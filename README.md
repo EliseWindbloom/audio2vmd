@@ -29,7 +29,7 @@ Completely automatically convert audio to vmd lips data using python cmd/automat
 ## Install automatically using 1-click installer batch file
 1) Download and install [Python](https://www.python.org/downloads/windows/)
 2) Download latest version of [audio2vmd](https://github.com/EliseWindbloom/audio2vmd/archive/refs/heads/main.zip)
-3) Unzip audio2vmd and run "install.bat" to install automatically, this may take awhile to download all required files.
+3) Unzip audio2vmd and run "install.bat" to install automatically, this may take awhile to download all the required files.
 
 ## Manually install
 `wip`
