@@ -1,6 +1,8 @@
 # audio2vmd
 Completely automatically convert audio to vmd lips data using python cmd/automatic batch-file, with automatic vocals extraction. Using this, you can make your MMD models lip-sync to any song or speech audio. **(wip, please check back in a few days)**
 
+![topimg](audio2vmd/img/audio2vmd.png)
+
 # Features
 - **Automatic Audio to VMD conversion**
   - Automatically creates a lip-synced VMD for MikuMikuDance/MikuMikuMoving from a audio file
@@ -64,6 +66,9 @@ Completely automatically convert audio to vmd lips data using python cmd/automat
   call venv\Scripts\activate.bat
   python audio2vmd_gui.py
   ```
+
+## GUI Preview
+![gui1](audio2vmd/img/gui1.png)
  
 ## Planned features
 - Possibly a window binary exe file for ease of use (I will have to research how to do this first though)
