@@ -5,7 +5,7 @@ Completely automatically convert audio to vmd lips data using python cmd/automat
 - **Automatic Audio to VMD conversion**
   - Automatically creates a lip-synced VMD for MikuMikuDance/MikuMikuMoving from a audio file
 - **One-click installer**
-  - One-click installer batch file to install audio2vmd on your computer (may need more development)
+  - One-click installer batch file to easily install audio2vmd on your computer (this may need more development)
 - **Optional GUI**
   - Fast and simple GUI interface to select audio files, change the settings of the config file, and run conversions
 - **Audio file types**
