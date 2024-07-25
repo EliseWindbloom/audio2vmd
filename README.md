@@ -62,7 +62,7 @@ cd..
   - To convert mulitple files at once:  
   `python audio2vmd.py input1.mp3 input2.mp3 --output "C:\files\vmd\"` 
 
-  - You can also give audo2vmd.py a plain textfile containing a list of audio files to convert(have one file path on each line):  
+  - You can also give audio2vmd.py a plain textfile containing a list of audio files to convert(have one file path on each line):  
     `python list_of_audio_files.txt --output "C:\files\vmd\"`
     
   - You can optinally add the output folder and name of model the vmd is for as well:  
