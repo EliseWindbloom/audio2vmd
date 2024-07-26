@@ -63,10 +63,10 @@ cd..
   `python audio2vmd.py input1.mp3 input2.mp3 --output "C:\files\vmd\"` 
 
   - You can also give audio2vmd.py a plain textfile containing a list of audio files to convert(have one file path on each line):  
-    `python list_of_audio_files.txt --output "C:\files\vmd\"`
+    `python  audio2vmd.py list_of_audio_files.txt --output "C:\files\vmd\"`
     
   - You can optinally add the output folder and name of model the vmd is for as well:  
-    `python mysong.mp4 --output "C:\files\vmd\" --model "My Model Name"`
+    `python  audio2vmd.py mysong.mp4 --output "C:\files\vmd\" --model "My Model Name"`
     
   - You can also edit the **audio2vmd\config.yaml** file in a text editor to edit a few of the settings.
     
