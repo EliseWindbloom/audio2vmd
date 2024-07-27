@@ -90,7 +90,7 @@ cd..
   - Extras Tab - This lets you do extra operations without needing a audio file:
     - Optimize most any VMD
     - Send lips data straight from one VMD file to another VMD file.
-  - One at a time GUI - The gui now process batch list audio files one at a time, which seems to grealy reduce the memory requirements when running a batch of audio files.
+  - One at a time GUI - The gui now process batch list audio files one at a time, which seems to greatly reduce the memory requirements when running a batch of audio files.
   
   
 ## Credits
