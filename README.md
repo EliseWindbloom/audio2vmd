@@ -1,4 +1,4 @@
-# audio2vmd
+# audio2vmd (version 12)
 Completely automatically convert audio to vmd lips data using python cmd/automatic batch-file, with automatic vocals extraction. Using this, you can make your MMD models lip-sync to any song or speech audio. 
 
 ![topimg](audio2vmd/img/audio2vmd_1.png)
@@ -24,6 +24,8 @@ Completely automatically convert audio to vmd lips data using python cmd/automat
   - Can accept multiple audio files at once and convert them all each to a different vmd file
 - **Config file**
   - Simple config file allows you to change settings. Currently you can change the effect of the amount for each vowel (A, I, O, U) to make talking much more pronounced, as well as the spliting duration and if to use optimization.
+- **Send VMD Lips Data**
+  - Can optionally send the created VMD lips data to another VMD. Using this, you can send the VMD lips directly to a VMD containing things such as an body animations. 
 - **Ready for MMD**
   - Will automatically convert audio to wav format if it isn't in wav already. Combined with the VMD, they're ready to launch with MMD/MMM.(This won't move/delete your original audio)
  
@@ -81,7 +83,17 @@ cd..
 - Video: "[audio2vmd demonstration](https://vimeo.com/989158449)"
   
 ![gui1](audio2vmd/img/gui1.png)
- 
+
+## New features in version 12
+  - Special Characters handling - should be able to handle non-english file paths much better now.
+  - The "Run" becomes a "Force Stop" button after clicking on it. Click on "Force Stop" to force the app to stop processing the audio/vmd files.
+  - Extras Tab - This lets you do extra operations without needing a audio file:
+    - Optimize most any VMD
+    - Send lips data straight from one VMD file to another VMD file.
+  - One at a time GUI - The gui now process batch list audio files one at a time, which seems to grealy reduce the memory requirements when running a batch of audio files.
+  
+  - 
+  
 ## Credits
 Nawota for the c# Lipsync plugin that this project is loosely based on.  
 This repository was first inspired by the original automatic lipsync guide by [Vayanis](https://www.youtube.com/watch?v=ozKBYGiyPJE)  
