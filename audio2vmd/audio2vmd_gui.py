@@ -277,19 +277,19 @@ class Audio2VMDGui:
             pass
 
     def browse_output_dir(self):
-        directory = filedialog.askdirectory()
+        directory = filedialog.askdirectory(title="Select an Output Folder to save the files at")
         if directory:
             directory_path = Path(directory)
             self.output_dir_entry.delete(0, tk.END)
             self.output_dir_entry.insert(0, str(directory_path))
 
     def browse_send_lips_data(self):
-        file = filedialog.askopenfilename(filetypes=[("VMD files", "*.vmd")])
+        file = filedialog.askopenfilename(title="Select a VMD file that will receive the lips data",filetypes=[("VMD files", "*.vmd")])
         if file:
             file_path = Path(file)
             self.send_lips_data_entry.delete(0, tk.END)
             self.send_lips_data_entry.insert(0, str(file_path))
-
+  
     def run_audio2vmd(self):
         if self.processing:
             # Stop the process
