@@ -1,5 +1,5 @@
 #=======================================
-# audio2vmd version 12
+# audio2vmd version 12.1
 # This script automatically converts a audio file to a vmd lips data file
 #=======================================
 # Created by Elise Windbloom
@@ -469,7 +469,9 @@ def load_config(config_file='config.yaml'):
     default_config['u_weight_multiplier'] = (0.9, "Intensity of the 'う' (U) sound. Increase to get more general small circle-shaped mouth.")
     default_config['max_duration'] = (300, "Maximum duration for splitting audio in seconds. Set to 0 to disable splitting.")
     default_config['optimize_vmd'] = (True, "Automatically optimize the VMD file True, highly recommended to keep this true.")
-    
+    default_config['extras_optimize_vmd_bone_position_tolerance'] = (0.005, "For Optimizing a VMD (in Extras) with bone position data. Use a tolerance of 0.001 for very high fidelity, but it might not reduce the file size much.")
+    default_config['extras_optimize_vmd_bone_rotation_tolerance'] = (0.005, "For Optimizing a VMD (in Extras) with bone rotation data. Use a tolerance of 0.001 for very high fidelity, but it might not reduce the file size much.")
+
     if os.path.exists(config_file):
         print(f"Configuration file found. Loading...")
         with open(config_file, 'r', encoding='utf-8') as f:
@@ -1061,7 +1063,11 @@ if __name__ == "__main__":
         vmd = VMDFile()
         vmd.load(args.input[0])
         extras_output_path = os.path.join(args.output, f"{extras_base_name}_optimized.vmd")
-        optimize_vmd_bones_and_morphs(vmd)
+        bone_pos = config.get('extras_optimize_vmd_bone_position_tolerance', 0.005)
+        bone_rot = config.get('extras_optimize_vmd_bone_rotation_tolerance', 0.005)
+        #print(f"-Bone Position Tolerance = {bone_pos}")
+        #print(f"-Bone Rotation Tolerance = {bone_rot}")
+        optimize_vmd_bones_and_morphs(vmd, bone_pos, bone_rot)
         vmd.save(extras_output_path)
         print(f"Optimized VMD saved to: {extras_output_path}")
     elif args.extras_mode == "REPLACE_LIPS":
