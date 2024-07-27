@@ -24,7 +24,7 @@ Completely automatically convert audio to vmd lips data using python cmd/automat
   - Can accept multiple audio files at once and convert them all each to a different vmd file
 - **Config file**
   - Simple config file allows you to change settings. Currently you can change the effect of the amount for each vowel (A, I, O, U) to make talking much more pronounced, as well as the spliting duration and if to use optimization.
-- **Send VMD Lips Data**
+- **Send VMD lips data**
   - Can optionally send the created VMD lips data to another VMD file. Using this, you can send the VMD lips directly to a VMD containing things such as an body animations. 
 - **Ready for MMD**
   - Will automatically convert audio to wav format if it isn't in wav already. Combined with the VMD, they're ready to launch with MMD/MMM.(This won't move/delete your original audio)
