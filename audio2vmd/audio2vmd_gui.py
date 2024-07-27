@@ -1,5 +1,5 @@
 #=======================================
-# audio2vmd_gui version 1
+# audio2vmd_gui version 12
 # Simple GUI for audio2vmd.py
 #=======================================
 # By Elise Windbloom
@@ -11,10 +11,20 @@ import os
 import subprocess
 import threading
 import queue
-import sys
 from collections import OrderedDict
+import psutil
+from pathlib import Path
+import time
 
 AUDIO2VMD_FILENAME = "audio2vmd.py" #change this to the exe file if you're planning it to used the exe file.
+
+def format_time(seconds):
+    """Format time in seconds to a human-readable string"""
+    if seconds < 60:
+        return f"{seconds:.2f} seconds"
+    else:
+        minutes, secs = divmod(seconds, 60)
+        return f"{int(minutes)} minutes and {secs:.2f} seconds"
 
 class CommentedConfig(OrderedDict):
     def __init__(self, *args, **kwargs):
@@ -63,6 +73,8 @@ class Audio2VMDGui:
 
         self.config = self.load_config()
 
+        self.process = None
+
         # Create and set up the notebook (tabbed interface)
         self.notebook = ttk.Notebook(master)
         self.notebook.pack(expand=True, fill='both', padx=10, pady=10)
@@ -70,15 +82,18 @@ class Audio2VMDGui:
         # Create tabs
         self.files_frame = ttk.Frame(self.notebook)
         self.settings_frame = ttk.Frame(self.notebook)
+        self.extras_frame = ttk.Frame(self.notebook)
 
         self.notebook.add(self.files_frame, text='Files')
         self.notebook.add(self.settings_frame, text='Settings')
+        self.notebook.add(self.extras_frame, text='Extras')
 
         # Set Files tab as the default
         self.notebook.select(self.files_frame)
 
         self.create_files_widgets()
         self.create_settings_widgets()
+        self.create_extras_widgets()
 
         # Create a queue for inter-thread communication
         self.queue = queue.Queue()
@@ -133,21 +148,70 @@ class Audio2VMDGui:
         self.output_dir_entry.insert(0, os.path.join(os.path.dirname(os.getcwd()), "output"))
         ttk.Button(self.files_frame, text="Browse", command=self.browse_output_dir).grid(row=3, column=2, padx=5, pady=5)
 
+        # Merge lip data into existing VMD
+        self.lips_data_frame = ttk.Frame(self.files_frame)
+        self.lips_data_frame.grid(row=4, column=0, columnspan=3, sticky='w', padx=5, pady=(15, 0))
+        self.lips_data_frame.grid_remove()  # Hide by default
+
+        ttk.Label(self.lips_data_frame, text="Send Lips Data To Replace Existing VMD's Lips Data (Optional):").grid(row=0, column=0, columnspan=3, sticky='w', padx=5, pady=(15, 0))
+        self.send_lips_data_entry = ttk.Entry(self.lips_data_frame, width=50)
+        self.send_lips_data_entry.grid(row=1, column=0, columnspan=2, sticky='ew', padx=5, pady=5)
+        ttk.Button(self.lips_data_frame, text="Browse", command=self.browse_send_lips_data).grid(row=1, column=2, padx=5, pady=5)
+
+        # More/Less link
+        self.more_link = tk.Label(self.files_frame, text="More...", fg="blue", cursor="hand2")
+        #self.more_link.grid(row=5, column=0, columnspan=3, pady=5, sticky='w')
+        self.more_link.grid(row=5, column=0, columnspan=3, pady=5, padx=(2, 0), sticky='w')
+        self.more_link.bind("<Button-1>", self.toggle_lips_data_frame)
+
         # Run button
         self.run_button = ttk.Button(self.files_frame, text="Run", command=self.run_audio2vmd)
-        self.run_button.grid(row=4, column=0, columnspan=3, pady=10)
+        self.run_button.grid(row=6, column=0, columnspan=3, pady=20)
 
         # Output text widget
         self.output_text = tk.Text(self.files_frame, wrap=tk.WORD, bg="black", fg="white", height=10)
-        self.output_text.grid(row=5, column=0, columnspan=3, padx=5, pady=5, sticky='nsew')
+        self.output_text.grid(row=7, column=0, columnspan=3, padx=5, pady=5, sticky='nsew')
 
         # Scrollbar for the output text
         output_scrollbar = ttk.Scrollbar(self.files_frame, orient='vertical', command=self.output_text.yview)
-        output_scrollbar.grid(row=5, column=3, sticky='ns')
+        output_scrollbar.grid(row=7, column=3, sticky='ns')
         self.output_text.configure(yscrollcommand=output_scrollbar.set)
 
         self.files_frame.columnconfigure(0, weight=1)
-        self.files_frame.rowconfigure(5, weight=1)
+        self.files_frame.rowconfigure(7, weight=1)
+
+        self.master.geometry("600x730")  # Increased height by 50 pixels
+
+    def create_extras_widgets(self):
+        # Center the buttons
+        self.extras_frame.columnconfigure(0, weight=1)
+        self.extras_frame.columnconfigure(1, weight=1)
+        self.extras_frame.columnconfigure(2, weight=1)
+
+        self.optimize_vmd_button = ttk.Button(self.extras_frame, text="Optimize VMD", command=self.optimize_vmd)
+        self.optimize_vmd_button.grid(row=0, column=1, padx=5, pady=5)
+
+        self.send_vmd_data_button = ttk.Button(self.extras_frame, text="Send VMD lips data to another VMD", command=self.send_vmd_data)
+        self.send_vmd_data_button.grid(row=1, column=1, padx=5, pady=5)
+
+        # Add the output text widget
+        self.extras_output_text = tk.Text(self.extras_frame, wrap=tk.WORD, bg="black", fg="white", height=10)
+        self.extras_output_text.grid(row=2, column=0, columnspan=3, padx=5, pady=5, sticky='nsew')
+
+        # Scrollbar for the output text
+        extras_output_scrollbar = ttk.Scrollbar(self.extras_frame, orient='vertical', command=self.extras_output_text.yview)
+        extras_output_scrollbar.grid(row=2, column=3, sticky='ns')
+        self.extras_output_text.configure(yscrollcommand=extras_output_scrollbar.set)
+
+        self.extras_frame.rowconfigure(2, weight=1)
+
+    def toggle_lips_data_frame(self, event=None):
+        if self.lips_data_frame.winfo_ismapped():
+            self.lips_data_frame.grid_remove()
+            self.more_link.config(text="More...")
+        else:
+            self.lips_data_frame.grid()
+            self.more_link.config(text="Less...")
 
     def load_config(self):
         config_path = 'config.yaml'
@@ -212,70 +276,321 @@ class Audio2VMDGui:
         except IndexError:
             pass
 
-
     def browse_output_dir(self):
         directory = filedialog.askdirectory()
         if directory:
+            directory_path = Path(directory)
             self.output_dir_entry.delete(0, tk.END)
-            self.output_dir_entry.insert(0, directory)
+            self.output_dir_entry.insert(0, str(directory_path))
+
+    def browse_send_lips_data(self):
+        file = filedialog.askopenfilename(filetypes=[("VMD files", "*.vmd")])
+        if file:
+            file_path = Path(file)
+            self.send_lips_data_entry.delete(0, tk.END)
+            self.send_lips_data_entry.insert(0, str(file_path))
 
     def run_audio2vmd(self):
-        input_files = self.files_listbox.get(0, tk.END)
-        output_dir = self.output_dir_entry.get()
+        if self.processing:
+            # Stop the process
+            self.stop_process()
+        else:
+            input_files = self.files_listbox.get(0, tk.END)
+            output_dir = self.output_dir_entry.get()
+            send_lips_data_to = self.send_lips_data_entry.get()
 
-        if not input_files:
-            messagebox.showerror("Error", "No input files selected!")
-            return
+            if not input_files:
+                messagebox.showerror("Error", "No input files selected!")
+                return
 
-        if not output_dir:
-            messagebox.showerror("Error", "No output directory specified!")
-            return
+            if not output_dir:
+                messagebox.showerror("Error", "No output directory specified!")
+                return
 
-        output_dir = os.path.normpath(output_dir)
-        self.output_dir_entry.delete(0, tk.END)
-        self.output_dir_entry.insert(0, output_dir)
-        if not os.path.isdir(output_dir):
-            messagebox.showerror("Error", "Invalid output directory!")
-            return
+            output_dir = os.path.normpath(output_dir)
+            self.output_dir_entry.delete(0, tk.END)
+            self.output_dir_entry.insert(0, output_dir)
+            if not os.path.isdir(output_dir):
+                messagebox.showerror("Error", "Invalid output directory!")
+                return
 
-        # Clear the output text widget
-        self.output_text.delete(1.0, tk.END)
-        self.output_text.insert(tk.END, "Starting audio2vmd and loading first audio file now...\n")
-        self.output_text.see(tk.END)
+            # Clear the output text widget
+            self.output_text.delete(1.0, tk.END)
+            self.output_text.insert(tk.END, "Starting audio2vmd and loading first audio file now...\n")
+            self.output_text.see(tk.END)
 
-        # Disable the Run button
-        self.run_button.config(state='disabled')
+            # Change the Run button to Force Stop
+            self.run_button.config(text="Force Stop")
+            self.processing = True
+
+            # Start the processing in a separate thread
+            self.process_thread = threading.Thread(target=self.process_files, args=(input_files, output_dir, send_lips_data_to), daemon=True)
+            self.process_thread.start()
+
+            # Start checking the queue for output
+            self.master.after(100, self.check_queue)
+
+    def optimize_vmd(self):
+        input_file = filedialog.askopenfilename(title="Select a VMD file to optimize",filetypes=[("VMD files", "*.vmd")])
+        if input_file:
+            output_dir = os.path.join(os.path.dirname(input_file), "output")
+            #os.makedirs(output_dir, exist_ok=True)
+            output_file = os.path.join(output_dir, f"optimized_{os.path.basename(input_file)}")
+            self.run_audio2vmd_extras("OPTIMIZE_VMD", input_file, output_file)
+
+    def send_vmd_data(self):
+        input_file = filedialog.askopenfilename(title="Select the input VMD file containing lips data",filetypes=[("VMD files", "*.vmd")])
+        if input_file:
+            target_file = filedialog.askopenfilename(title="Select the target VMD file to recieve the lips data",filetypes=[("VMD files", "*.vmd")])
+            if target_file:
+                output_dir = os.path.join(os.path.dirname(input_file), "output")
+                #os.makedirs(output_dir, exist_ok=True)
+                output_file = os.path.join(output_dir, f"merged_{os.path.basename(input_file)}")
+                self.run_audio2vmd_extras("REPLACE_LIPS", input_file, output_file, target_file)
+
+    def run_audio2vmd_extras(self, mode, input_file, output_file, target_file=None):
+        #full_cmd = f'{activate_cmd} && {python_cmd} "{Path(input_file)}" --extras-mode {mode}'
+        #full_cmd = f'{activate_cmd} && {python_cmd} "{input_file}" --output "{output_file}" --extras-mode {mode}'
+
+        activate_cmd = str(Path("venv") / "Scripts" / "activate.bat")
+        python_cmd = "python"
+        audio2vmd_script = AUDIO2VMD_FILENAME
+
+        cmd = [
+            "cmd", "/c",
+            "call", activate_cmd, "&&",
+            python_cmd,
+            audio2vmd_script,
+            str(Path(input_file)),
+            "--extras-mode", mode
+        ]
+
+        if target_file:
+            target_file_path = str(Path(target_file))
+            if target_file_path == ".":
+                target_file_path = ""
+            cmd.extend(["--send-lips-data-to", target_file_path])
+
+        self.extras_output_text.delete(1.0, tk.END)
+        self.extras_output_text.insert(tk.END, f"Running {mode} mode...\n")
+        self.extras_output_text.see(tk.END)
+
+        # Disable buttons
+        self.optimize_vmd_button.config(state='disabled')
+        self.send_vmd_data_button.config(state='disabled')
+
+        self.process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=1,
+            universal_newlines=True
+        )
         self.processing = True
+        self.master.after(100, self.check_extras_queue)
 
-        # Start the processing in a separate thread
-        threading.Thread(target=self.process_files, args=(input_files, output_dir), daemon=True).start()
+    def check_extras_queue(self):
+        if self.process:
+            try:
+                output = self.process.stdout.readline()
+                if output == '' and self.process.poll() is not None:
+                    self.processing = False
+                    # Re-enable buttons
+                    self.optimize_vmd_button.config(state='normal')
+                    self.send_vmd_data_button.config(state='normal')
+                    return
+                if output:
+                    self.extras_output_text.insert(tk.END, output)
+                    self.extras_output_text.see(tk.END)
+            except AttributeError:
+                pass
+        
+        if self.processing:
+            self.master.after(100, self.check_extras_queue)
 
-        # Start checking the queue for output
-        self.master.after(100, self.check_queue)
+    def stop_process(self):
+        if self.processing and self.process:
+            self.output_text.insert(tk.END, "Stopping the process...\n")
+            self.output_text.see(tk.END)
+            
+            # Terminate the process and all its children
+            try:
+                parent = psutil.Process(self.process.pid)
+                for child in parent.children(recursive=True):
+                    child.terminate()
+                parent.terminate()
+            except psutil.NoSuchProcess:
+                pass  # Process already terminated
+            
+            # Re-enable the button and change text back to "Run"
+            self.run_button.config(state='normal', text="Run")
+            self.processing = False
+            self.process = None
+            
+            self.output_text.insert(tk.END, "Process stopped.\n")
+            self.output_text.see(tk.END)
 
-    def process_files(self, input_files, output_dir):
+    def process_files_with_debug_messages(self, input_files, output_dir, send_lips_data_to):
+        # Unused, for debugging
         activate_cmd = r"call venv\Scripts\activate.bat"
         python_cmd = "python " + AUDIO2VMD_FILENAME
 
-        # Join all input files into a single string with each file path quoted
-        input_files_str = ' '.join([f'"{file}"' for file in input_files])
-        full_cmd = f'{activate_cmd} && {python_cmd} {input_files_str} --output "{output_dir}"'
+        start_time = time.time()
 
-        process = subprocess.Popen(full_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1, universal_newlines=True, shell=True)
+        for file in input_files:
+            input_file_str = f'"{file}"'
+            full_cmd = f'{activate_cmd} && {python_cmd} {input_file_str} --output "{output_dir}"'
 
-        for line in iter(process.stdout.readline, ''):
-            if not line.startswith("INFO:spleeter:File"):
-                self.queue.put(line)
-        for line in iter(process.stderr.readline, ''):
-            if not line.startswith("INFO:spleeter:File"):
-                self.queue.put(f"ERROR: {line}")
+            if send_lips_data_to:
+                full_cmd += f' --send-lips-data-to "{send_lips_data_to}"'
 
-        process.wait()
+            full_cmd += f' --show-final-complete-message "False"'
 
+            self.queue.put(f"Processing file: {file}")
+
+            try:
+                self.process = subprocess.Popen(
+                    full_cmd, 
+                    stdout=subprocess.PIPE, 
+                    stderr=subprocess.PIPE, 
+                    text=True, 
+                    bufsize=1, 
+                    universal_newlines=True,
+                    encoding='utf-8',
+                    errors='replace',
+                    shell=True
+                )
+
+                while self.process:
+                    output = self.process.stdout.readline()
+                    error = self.process.stderr.readline()
+
+                    if output == '' and error == '' and self.process.poll() is not None:
+                        break
+
+                    if output:
+                        self.queue.put(output.strip())
+                    if error:
+                        self.queue.put(f"ERROR: {error.strip()}")
+
+                if self.process:
+                    return_code = self.process.wait()
+                    if return_code != 0:
+                        self.queue.put(f"Process exited with return code {return_code}")
+            except Exception as e:
+                self.queue.put(f"An error occurred while processing {file}: {str(e)}")
+            finally:
+                self.process = None
+
+        self.queue.put(f"Complete! All Audio to VMD conversion completed in {format_time(time.time() - start_time)}")
+        self.queue.put("DONE")
+
+    def process_files(self, input_files, output_dir, send_lips_data_to):
+        activate_cmd = r"call venv\Scripts\activate.bat"
+        python_cmd = "python " + AUDIO2VMD_FILENAME
+
+        start_time = time.time()
+
+        for file in input_files:
+            input_file_str = f'"{file}"'
+            full_cmd = f'{activate_cmd} && {python_cmd} {input_file_str} --output "{output_dir}"'
+
+            if send_lips_data_to:
+                full_cmd += f' --send-lips-data-to "{send_lips_data_to}"'
+
+            full_cmd += f' --show-final-complete-message "False"'
+
+            self.queue.put(f"Processing file: {file}")
+
+            try:
+                self.process = subprocess.Popen(
+                    full_cmd, 
+                    stdout=subprocess.PIPE, 
+                    stderr=subprocess.STDOUT,  # Redirect stderr to stdout
+                    text=True, 
+                    bufsize=1, 
+                    universal_newlines=True,
+                    encoding='utf-8',
+                    errors='replace',
+                    shell=True
+                )
+
+                while self.process:
+                    output = self.process.stdout.readline()
+                    if output == '' and self.process.poll() is not None:
+                        break
+                    if output and not output.startswith("INFO:spleeter:"):
+                        self.queue.put(output.strip())
+
+                if self.process:
+                    return_code = self.process.wait()
+                    if return_code != 0:
+                        self.queue.put(f"Process exited with return code {return_code}")
+            except Exception as e:
+                self.queue.put(f"An error occurred while processing {file}: {str(e)}")
+            finally:
+                self.process = None
+
+        self.queue.put(f"Complete! All Audio to VMD conversion completed in {format_time(time.time() - start_time)}")
         self.queue.put("DONE")
 
 
+    #uses more computer resources using restart
+    def process_files_one_by_one(self, input_files, output_dir, send_lips_data_to):
+        # unused, for restarting but seems to use more resources
+        activate_cmd = r"call venv\Scripts\activate.bat"
+        python_cmd = "python " + AUDIO2VMD_FILENAME
+
+        input_files_str = ' '.join([f'"{file}"' for file in input_files])
+        full_cmd = f'{activate_cmd} && {python_cmd} {input_files_str} --output "{output_dir}"'
+
+        # Add the send-lips-data-to option if provided
+        if send_lips_data_to:
+            full_cmd += f' --send-lips-data-to "{send_lips_data_to}"'
+
+        self.queue.put(f"Executing command: {full_cmd}\n")
+
+        try:
+            # Use subprocess.Popen with universal_newlines=True and encoding='utf-8'
+            self.process = subprocess.Popen(
+                full_cmd, 
+                stdout=subprocess.PIPE, 
+                stderr=subprocess.PIPE, 
+                text=True, 
+                bufsize=1, 
+                universal_newlines=True,
+                encoding='utf-8',
+                errors='replace',
+                shell=True
+            )
+
+            while self.process:
+                output = self.process.stdout.readline() 
+                error = self.process.stderr.readline() #shows errors
+
+                if output == '' and error == '' and self.process.poll() is not None:
+                    break
+
+                if output:
+                    self.queue.put(output.strip())
+                if error:
+                    self.queue.put(f"ERROR: {error.strip()}")
+
+            if self.process:
+                return_code = self.process.wait()
+                if return_code != 0:
+                    self.queue.put(f"Process exited with return code {return_code}")
+        except Exception as e:
+            self.queue.put(f"An error occurred: {str(e)}")
+        finally:
+            self.queue.put("DONE")
+            self.process = None
+
+
+
     def process_files_by_looping(self, input_files, output_dir):
+        # unused
         #alternate way to use audio2vmd, this doesn't use audio2vmd's build in restarting ablity
         #note using this way won't give you the total time taken for all files
         activate_cmd = r"call venv\Scripts\activate.bat"
@@ -297,16 +612,15 @@ class Audio2VMDGui:
 
         self.queue.put("DONE")
 
-
     def check_queue(self):
         try:
             while True:
                 line = self.queue.get_nowait()
                 if line == "DONE":
                     self.processing = False
-                    self.run_button.config(state='normal')
+                    self.run_button.config(text="Run", state='normal')
                 else:
-                    self.output_text.insert(tk.END, line)
+                    self.output_text.insert(tk.END, line + '\n')
                     self.output_text.see(tk.END)
         except queue.Empty:
             if self.processing:
@@ -316,3 +630,4 @@ if __name__ == "__main__":
     root = tk.Tk()
     app = Audio2VMDGui(root)
     root.mainloop()
+
