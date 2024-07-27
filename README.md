@@ -92,7 +92,6 @@ cd..
     - Send lips data straight from one VMD file to another VMD file.
   - One at a time GUI - The gui now process batch list audio files one at a time, which seems to grealy reduce the memory requirements when running a batch of audio files.
   
-  - 
   
 ## Credits
 Nawota for the c# Lipsync plugin that this project is loosely based on.  
