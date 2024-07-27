@@ -1,5 +1,5 @@
 #=======================================
-# audio2vmd version 11
+# audio2vmd version 12
 # This script automatically converts a audio file to a vmd lips data file
 #=======================================
 # Created by Elise Windbloom
@@ -26,6 +26,13 @@ import subprocess
 import logging
 import tensorflow as tf
 import traceback
+import shlex
+from pathlib import Path
+import io
+
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
 
 # Set TensorFlow logging level to only show fatal errors
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -51,23 +58,120 @@ class VMDMorphFrame:
             struct.pack('<f', self.weight)
         )
 
+
 class VMDFile:
-    def __init__(self, model_name):
+    def __init__(self, model_name=""):
         self.model_name = model_name
+        self.header = b'Vocaloid Motion Data 0002\0\0\0\0\0'
+        self.bone_frames = []
         self.morph_frames = []
+        self.camera_frames = []
+        self.light_frames = []
+        self.shadow_frames = []
+
+    def load(self, filename):
+        #print(f"---load vmd filename = {filename}")
+        with open(filename, 'rb') as f:
+            data = f.read()
+
+        # Read header
+        self.header = data[:30]
+        #if self.header != b'Vocaloid Motion Data 0002\0\0\0\0\0':
+        if self.header.startswith(b"Vocaloid Motion Data 0002") == False and self.header.startswith(b"Vocaloid Motion Data file") == False:
+            raise ValueError(f"Invalid VMD file header - <{self.header}>")
+        
+        # Read model name
+        self.model_name = data[30:50].split(b'\0')[0].decode('shift-jis', errors='ignore')
+
+        offset = 50
+        # Read bone frames
+        bone_count = struct.unpack('<I', data[offset:offset+4])[0]
+        offset += 4
+        self.bone_frames = []
+        for _ in range(bone_count):
+            bone_frame = {
+                'name': data[offset:offset+15].split(b'\0')[0].decode('shift-jis', errors='ignore'),
+                'frame': struct.unpack('<I', data[offset+15:offset+19])[0],
+                'position': struct.unpack('<fff', data[offset+19:offset+31]),
+                'rotation': struct.unpack('<ffff', data[offset+31:offset+47]),
+                'interpolation': data[offset+47:offset+111]
+            }
+            self.bone_frames.append(bone_frame)
+            offset += 111
+
+        # Read morph frames
+        morph_count = struct.unpack('<I', data[offset:offset+4])[0]
+        offset += 4
+        self.morph_frames = []
+        for _ in range(morph_count):
+            morph_frame = VMDMorphFrame(
+                data[offset:offset+15].split(b'\0')[0].decode('shift-jis', errors='ignore'),
+                struct.unpack('<I', data[offset+15:offset+19])[0],
+                struct.unpack('<f', data[offset+19:offset+23])[0]
+            )
+            self.morph_frames.append(morph_frame)
+            offset += 23
+
+        # Read camera frames
+        camera_count = struct.unpack('<I', data[offset:offset+4])[0]
+        offset += 4
+        self.camera_frames = [data[offset+i*61:offset+(i+1)*61] for i in range(camera_count)]
+        offset += camera_count * 61
+
+        # Read light frames
+        light_count = struct.unpack('<I', data[offset:offset+4])[0]
+        offset += 4
+        self.light_frames = [data[offset+i*28:offset+(i+1)*28] for i in range(light_count)]
+        offset += light_count * 28
+
+        # Read shadow frames (if present)
+        if offset < len(data):
+            shadow_count = struct.unpack('<I', data[offset:offset+4])[0]
+            offset += 4
+            self.shadow_frames = [data[offset+i*9:offset+(i+1)*9] for i in range(shadow_count)]
+
+    def save(self, filename):
+        with open(filename, 'wb') as f:
+            # Write header
+            f.write(self.header)
+
+            # Write model name
+            f.write(self.model_name.encode('shift-jis').ljust(20, b'\0'))
+
+            # Write bone frames
+            f.write(struct.pack('<I', len(self.bone_frames)))
+            for bone in self.bone_frames:
+                f.write(bone['name'].encode('shift-jis').ljust(15, b'\0'))
+                f.write(struct.pack('<I', bone['frame']))
+                f.write(struct.pack('<fff', *bone['position']))
+                f.write(struct.pack('<ffff', *bone['rotation']))
+                f.write(bone['interpolation'])
+
+            # Write morph frames
+            f.write(struct.pack('<I', len(self.morph_frames)))
+            for morph in self.morph_frames:
+                f.write(morph.to_bytes())
+
+            # Write camera frames
+            f.write(struct.pack('<I', len(self.camera_frames)))
+            for camera in self.camera_frames:
+                f.write(camera)
+
+            # Write light frames
+            f.write(struct.pack('<I', len(self.light_frames)))
+            for light in self.light_frames:
+                f.write(light)
+
+            # Write shadow frames
+            f.write(struct.pack('<I', len(self.shadow_frames)))
+            for shadow in self.shadow_frames:
+                f.write(shadow)
 
     def add_morph_frame(self, name, frame, weight):
         self.morph_frames.append(VMDMorphFrame(name, frame, weight))
 
-    def save(self, filename):
-        with open(filename, 'wb') as f:
-            f.write(b'Vocaloid Motion Data 0002\0\0\0\0\0')
-            f.write(self.model_name.encode('shift-jis').ljust(20, b'\0'))
-            f.write(struct.pack('<I', 0))  # Bone frame count (0 for lip sync)
-            f.write(struct.pack('<I', len(self.morph_frames)))
-            for frame in self.morph_frames:
-                f.write(frame.to_bytes())
-            f.write(struct.pack('<I', 0) * 3)  # Camera, light, and self shadow frame counts
+    def get_morph_frames(self):
+        return self.morph_frames
 
 # this is use to help set up a yaml that is easy to add comments to from this python script
 class CommentedConfig(OrderedDict):
@@ -112,6 +216,98 @@ def optimize_vmd_data(vmd):
 
     vmd.morph_frames = sorted(optimized_frames, key=lambda f: f.frame)
 
+def optimize_vmd_bones_and_morphs(vmd, position_tolerance=0.01, rotation_tolerance=0.01):
+    # Safe Range for bone position/rotation tolerance: 0.001 to 0.01
+    # Explanation: A tolerance of 0.001 ensures very high fidelity, but it might not reduce the file size significantly. Increasing it to 0.01 can still maintain acceptable visual quality while allowing more keyframes to be removed.
+
+    def is_keyframe(v1, v2, v3):
+        return (v1 > v2 and v1 > v3) or (v1 < v2 and v1 < v3) or \
+               (v1 == 0 and (v2 != 0 or v3 != 0)) or (v1 == 1 and (v2 != 1 or v3 != 1)) or \
+               (v1 < 0.0099 and ((v2 > 0.0099 and v2 > v1) or (v3 > 0.0099 and v3 > v1)))
+
+    def interpolate(v1, v2, t):
+        return v1 * (1 - t) + v2 * t
+
+    def is_interpolated_keyframe(frame1, frame2, frame3):
+        t = (frame2['frame'] - frame1['frame']) / (frame3['frame'] - frame1['frame'])
+        interpolated_pos = [interpolate(frame1['position'][i], frame3['position'][i], t) for i in range(3)]
+        interpolated_rot = [interpolate(frame1['rotation'][i], frame3['rotation'][i], t) for i in range(4)]
+        return not (all(abs(frame2['position'][i] - interpolated_pos[i]) < position_tolerance for i in range(3)) and
+                    all(abs(frame2['rotation'][i] - interpolated_rot[i]) < rotation_tolerance for i in range(4)))
+
+    optimized_bone_frames = []
+    optimized_morph_frames = []
+
+    # Optimize bone frames
+    for bone_name in set(frame['name'] for frame in vmd.bone_frames):
+        bone_frames = sorted([f for f in vmd.bone_frames if f['name'] == bone_name], key=lambda x: x['frame'])
+        optimized_bone_frames.extend(bone_frames[:2])
+        optimized_bone_frames.extend(bone_frames[-2:])
+        for i in range(2, len(bone_frames) - 2):
+            if is_keyframe(bone_frames[i]['position'][0], bone_frames[i-1]['position'][0], bone_frames[i+1]['position'][0]) or \
+               is_keyframe(bone_frames[i]['position'][1], bone_frames[i-1]['position'][1], bone_frames[i+1]['position'][1]) or \
+               is_keyframe(bone_frames[i]['position'][2], bone_frames[i-1]['position'][2], bone_frames[i+1]['position'][2]) or \
+               is_keyframe(bone_frames[i]['rotation'][0], bone_frames[i-1]['rotation'][0], bone_frames[i+1]['rotation'][0]) or \
+               is_keyframe(bone_frames[i]['rotation'][1], bone_frames[i-1]['rotation'][1], bone_frames[i+1]['rotation'][1]) or \
+               is_keyframe(bone_frames[i]['rotation'][2], bone_frames[i-1]['rotation'][2], bone_frames[i+1]['rotation'][2]) or \
+               is_keyframe(bone_frames[i]['rotation'][3], bone_frames[i-1]['rotation'][3], bone_frames[i+1]['rotation'][3]) or \
+               is_interpolated_keyframe(bone_frames[i-1], bone_frames[i], bone_frames[i+1]):
+                optimized_bone_frames.append(bone_frames[i])
+
+    # Optimize morph frames
+    for morph_name in set(frame.name for frame in vmd.morph_frames):
+        morph_frames = sorted([f for f in vmd.morph_frames if f.name == morph_name], key=lambda x: x.frame)
+        optimized_morph_frames.extend(morph_frames[:2])
+        optimized_morph_frames.extend(morph_frames[-2:])
+        for i in range(2, len(morph_frames) - 2):
+            if is_keyframe(morph_frames[i].weight, morph_frames[i-1].weight, morph_frames[i+1].weight):
+                optimized_morph_frames.append(morph_frames[i])
+
+    vmd.bone_frames = sorted(optimized_bone_frames, key=lambda x: x['frame'])
+    vmd.morph_frames = sorted(optimized_morph_frames, key=lambda x: x.frame)
+
+def replace_mouth_frames(source_vmd_path, target_vmd_path, new_vmd_save_path, replace_mode="AIOU"):
+    #print(f"-prepaing to save mouth source_vmd_path=<{source_vmd_path}>")
+    #print(f"-target_vmd_path=<{target_vmd_path}> new_vmd_save_path=<{new_vmd_save_path}> replace_all={replace_all}")
+
+    # Read the VMD files
+    target_vmd = VMDFile()
+    target_vmd.load(target_vmd_path)
+    source_vmd = VMDFile()
+    source_vmd.load(source_vmd_path)
+    # List of all mouth morphs
+    mouth_morphs = [
+        'あ', 'い', 'う', 'え', 'お', 'あ２', 'ん', '▲', '∧', '□', 'ワ', 'ω', 'ω□',
+        'にやり', 'にやり２', 'にっこり', 'ぺろっ', 'てへぺろ', 'てへぺろ２', '口角上げ',
+        '口角下げ', '口横広げ', '歯無し上', '歯無し下'
+    ] # All the general mouth morphs
+    specific_mouth_morphs = ['あ', 'い', 'う', 'お'] # A, I, O, U mouths only
+    
+    if replace_mode == "ALL_MOUTHS":
+        # Filter only mouth morphs from source_vmd
+        source_morph_frames = [f for f in source_vmd.morph_frames if f.name in mouth_morphs]
+    elif replace_mode == "AIOU":
+        # Default specific A, I, O, U mouth morphs
+        source_morph_frames = [f for f in source_vmd.morph_frames if f.name in specific_mouth_morphs]
+    elif replace_mode == "ALL_FACE":
+        # Replace all face morphs (eyes, mouth, brow, other)
+        source_morph_frames = source_vmd.morph_frames
+    else:
+        raise ValueError(f"Invalid replace_mode option: {replace_mode}")
+    
+    if replace_mode in ["ALL_MOUTHS", "AIOU"]:
+        # Remove existing mouth morphs from target_vmd
+        target_morph_frames = [f for f in target_vmd.morph_frames if f.name not in mouth_morphs]
+    else:
+        # Remove all morphs from target_vmd
+        target_morph_frames = []
+
+    # Combine and sort the frames
+    target_vmd.morph_frames = sorted(target_morph_frames + source_morph_frames, key=lambda x: x.frame)
+
+    # Save the modified target VMD file
+    target_vmd.save(new_vmd_save_path)
+
 def format_time(seconds):
     """Format time in seconds to a human-readable string"""
     if seconds < 60:
@@ -144,6 +340,10 @@ def extract_vocals(audio_path, wav_path):
 
         # Save as WAV using Spleeter's default settings
         audio_adapter.save(wav_path, vocals, sample_rate)
+
+        del separator  # Clear the separator object
+        del prediction  # Clear the prediction dictionary
+        del vocals  # Clear the vocals array
 
         print(f"Vocals separated and saved to: {wav_path}")
         return wav_path
@@ -214,6 +414,10 @@ def analyze_audio_for_vocals(audio_path):
     # Check if it's vocals-only (very low accompaniment energy compared to vocals)
     is_vocals_only = has_vocals and (accompaniment_energy < 0.1 * vocal_energy)  # Adjust this ratio as needed
     
+    del separator  # Clear the separator object reference 
+    del prediction  # Clear the prediction dictionary reference 
+    del vocals  # Clear the vocals array reference 
+    del accompaniment  # Clear the accompaniment array reference 
     return has_vocals, is_vocals_only
 
 def detect_audio_format(audio_path):
@@ -396,6 +600,7 @@ def split_audio(audio_path, output_dir="", secondary_audio_path="", original_is_
         part.export(output_file, format="wav")
         output_files.append(output_file)
 
+        del audio  # Clear the full audio reference after processing
         if secondary_audio_path != "":
             secondary_part = secondary_audio[start:split_point]
             if short_audio_needs_wav_conversion == False:
@@ -404,6 +609,11 @@ def split_audio(audio_path, output_dir="", secondary_audio_path="", original_is_
                 secondary_output_file = os.path.join(output_dir, f"{secondary_base_name}_original.wav")
             secondary_part.export(secondary_output_file, format="wav")
             secondary_output_files.append(secondary_output_file)
+            try:
+                del secondary_audio # Clear the secondary audio reference after processing
+            except NameError as e:
+                pass  # Do nothing and move on
+            
 
         start = split_point
         part_num += 1
@@ -462,9 +672,19 @@ def load_progress(output_dir):
             return json.load(f)
     return None
 
-def process_single_file(input_file, output_dir, model_name, config):
+def process_single_file(input_file, output_dir, model_name, config, send_lips_data_to):
     # This function contains the logic previously in the batch_process function,
     # but for a single file
+    file_extension = get_file_extension(input_file)
+    if file_extension.lower() == '.vmd':
+        # Handle VMD file optimization
+        output_file = os.path.join(output_dir, f"_optimized_{os.path.basename(input_file)}")
+        vmd_optimized = VMDFile()
+        vmd_optimized.load(input_file)# Load the VMD file
+        optimize_vmd_bones_and_morphs(input_file) # Optimize the VMD file
+        vmd_optimized.save(output_file)# Save the modified VMD file
+        print(f"Optimized VMD file saved as: {output_file}")
+        return
     input_is_wav_filetype = False
     dependent_audio_to_split = ""
     input_audio_has_vocals, input_audio_is_vocals_only = analyze_audio_for_vocals(input_file)
@@ -498,40 +718,64 @@ def process_single_file(input_file, output_dir, model_name, config):
             print(f"  Full audio file: {full_audio_part}")
         
         print(f"  VMD file: {output_file}")
-
-def batch_process(input_files, output_dir, model_name, config, global_start_time, item_start_time, audio_source_files_count=1):
-    """Process a single audio file and then exit to allow script restart."""
-    try:
-        current_file = input_files.pop(0)
-        print(f"Processing file: {current_file}")
-        process_single_file(current_file, output_dir, model_name, config)
+    # After processing all parts
+    if send_lips_data_to:
+        #print(f"--send_lips_data_to = <{send_lips_data_to}>")
+        if len(vocal_parts)>1:
+            # Process the original unsplit audio file if the vmd file was in parts
+            unsplit_vmd_file = os.path.join(output_dir, f"{os.path.splitext(os.path.basename(input_file))[0]}_unsplit.vmd")
+            audio_to_vmd(input_file, unsplit_vmd_file, model_name, config)
+        else:
+            unsplit_vmd_file = output_file
         
-        # Save progress
-        save_progress(input_files, output_dir, global_start_time, audio_source_files_count)
+        # Replace mouth frames in the target VMD file
+        lips_output_file = os.path.join(output_dir, f"{os.path.splitext(os.path.basename(send_lips_data_to))[0]}_With_Lips_From_{os.path.splitext(os.path.basename(input_file))[0]}.vmd")
+        lips_output_file = trim_filename_if_needed(lips_output_file) #keeps filename from getting too long
+        print(f"Sending lips data to a copy of: {send_lips_data_to}")
+        replace_mouth_frames(unsplit_vmd_file, send_lips_data_to, lips_output_file, "AIOU")
+        print(f"Lips data sent to: {lips_output_file}")
+        if os.path.exists(unsplit_vmd_file) and unsplit_vmd_file != output_file:
+            os.remove(unsplit_vmd_file) # delete unneeded vmd file
 
-        end_time = time.time()
-        processing_time = end_time - item_start_time
-        print(f"-Audio to VMD conversion for {os.path.basename(current_file)} completed in {format_time(processing_time)}.")
+#def batch_process(input_files, output_dir, model_name, config, args):
+def batch_process(input_files, output_dir, model_name, config, global_start_time, item_start_time, audio_source_files_count=1, send_lips_data_to="", show_final_complete_message=True):
+    total_files = len(input_files)
+    processed_files = 0
+    start_time = time.time()
 
-        if not input_files:
-            if audio_source_files_count>1:
-                print("All files processed. Batch complete.")
-            # Remove the progress file as we're done
-            progress_file = os.path.join(output_dir, "batch_progress.json")
-            if os.path.exists(progress_file):
-                os.remove(progress_file)
-            return
-        print("Restarting script for next file...")
-        #python = sys.executable
-        #os.execl(python, python, *sys.argv)
-        subprocess.Popen([sys.executable] + sys.argv)
-        sys.exit()
-    except AssertionError as e:
-        # Handle the exception
-        #print(f"Error processing item {i}: {e}")
-        # Optional: Log the error details to a file
-        with open("log.txt", "a") as log_file:
-            log_file.write(f"Error processing item:\n{traceback.format_exc()}\n")
+    for input_file in input_files:
+        processed_files += 1
+        print(f"\nProcessing file {processed_files} of {total_files}: {input_file}")
+        
+        try:
+            process_single_file(input_file, output_dir, model_name, config, send_lips_data_to)
+        except Exception as e:
+            print(f"Error processing {input_file}: {str(e)}")
+            logging.error(f"Error processing {input_file}: {str(e)}")
+            continue
+
+        elapsed_time = time.time() - start_time
+        avg_time_per_file = elapsed_time / processed_files
+        estimated_time_left = (total_files - processed_files) * avg_time_per_file
+        
+        if show_final_complete_message == True:
+            print(f"Processed {processed_files}/{total_files} files")
+            print(f"Elapsed time: {format_time(elapsed_time)}")
+            print(f"Estimated time left: {format_time(estimated_time_left)}")
+
+    
+        if send_lips_data_to:
+            print("Batch processing complete. Lips data has been sent to the specified VMD file.")
+        elif show_final_complete_message == True:
+            print("Batch processing complete.")
+
+    print(f"Total time taken: {format_time(time.time() - start_time)}")
+
+    # Restart the script if there are more files to process
+    if processed_files < total_files:
+        print("Restarting script to process remaining files...")
+        python = sys.executable
+        os.execl(python, python, *sys.argv)
     
 
 
@@ -663,28 +907,71 @@ def get_file_extension(filepath):
     _, extension = os.path.splitext(filepath)
     return extension[1:] if extension else ''
 
-def sanitize_directory_path(path):
-    # Define a set of valid characters for a file path
-    valid_chars = f"-_.() {string.ascii_letters}{string.digits}/\\:"
-    # Initialize an empty string to store the sanitized path
-    sanitized_path = ''
-    # Copy characters one by one if they are valid
-    for char in path:
-        if char in valid_chars:
-            sanitized_path += char
-        else:
-            # If encountering an invalid character, stop processing further
-            break
-    # Return the sanitized path
-    return sanitized_path
+def filename_fix_remove_extra_text(file_path, substring_to_remove = " --model Model"):
+    # Bug fix for when cmd gives model name too
+    #print(f"----- if needs fix testing {file_path}")
+    if file_path.endswith(substring_to_remove):
+        print(f"-----fixing file path extra for {file_path}")
+        file_path = file_path[:-len(substring_to_remove)]
+    return file_path
 
-# Usage
+def trim_filename_if_needed(file_path, max_length=260):
+    """
+    Trims the filename if the file path exceeds the maximum allowed length.
+
+    Parameters:
+    - file_path (str): The full path to the file.
+    - max_length (int): The maximum allowed length of the file path.
+
+    Returns:
+    - str: The modified file path if trimming was needed, otherwise the original file path.
+    """
+    if len(file_path) <= max_length:
+        return file_path
+    
+    # Get the directory path and filename
+    dir_path, filename = os.path.split(file_path)
+    
+    # Calculate how much to trim from the filename
+    excess_length = len(file_path) - max_length
+    
+    if excess_length >= len(filename):
+        raise ValueError("The directory path alone exceeds the maximum length limit.")
+    
+    # Trim the filename
+    trimmed_filename = filename[:-excess_length]
+
+    # Ensure there's still a valid file extension if applicable
+    base, ext = os.path.splitext(filename)
+    if ext:
+        trimmed_filename = base[:len(trimmed_filename) - len(ext)] + ext
+    
+    # Reassemble the trimmed file path
+    trimmed_file_path = os.path.join(dir_path, trimmed_filename)
+    
+    return trimmed_file_path
+
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Convert audio to VMD lip sync data.")
-    parser.add_argument("input", nargs='*', help="Input audio file(s) or directory")
-    parser.add_argument("--output", "-o", default="output", help="Output directory for VMD files")
+    parser.add_argument("input", nargs='*', type=Path, help="Input audio file(s) or directory")
+    parser.add_argument("--output", "-o", type=Path, default="output", help="Output directory for VMD files")
+    parser.add_argument('--send-lips-data-to', type=Path,  default="", help='Path to the VMD file to receive the lips data')
     parser.add_argument("--model", "-m", default="Model", help="Model name for VMD file")
-    parser.add_argument("--config", "-c", default="config.yaml", help="Path to configuration file")
+    parser.add_argument("--config", "-c", type=Path, default="config.yaml", help="Path to configuration file")
+    parser.add_argument("--extras-mode", choices=["OPTIMIZE_VMD", "REPLACE_LIPS", ""], default="", help="Extra processing mode")
+    parser.add_argument('--show-final-complete-message', type=str2bool, default="True", help='Tells to show the final complete message (used for looping).')
+     
     
     args = parser.parse_args()
     #print(f"---args_before=<{args}>")
@@ -696,19 +983,29 @@ if __name__ == "__main__":
         print("  python audio2vmd.py input1.mp3 input2.wav --output my_output --model 'My Model'")
         print("  python audio2vmd.py input_directory --output output_directory")
         sys.exit(1)
-    
+
     audio_source_files_count = 1 # number of audio files to convert
     start_time = time.time() #global start time for the whole process
     item_start_time = time.time() #start time for the current audio file
     
-    args.output = sanitize_directory_path(args.output) 
-    args.model = sanitize_directory_path(args.model)
-    args.config = sanitize_directory_path(args.config)
+    #print(f"-args before ={str(args)}")
+    args.input = [str(path) for path in args.input] # convert all items to string
+    args.output = str(args.output) 
+    #args.model = str(args.model)
+    args.config = str(args.config)
+    args.send_lips_data_to = str(args.send_lips_data_to) # converts Path back to strings for now
+    if args.send_lips_data_to == '.': #remove . set by Path when empty directory is given
+        args.send_lips_data_to = ''
+    #print(f"-args after ={str(args)}")
 
     # remove extra model name if it's connected to end of output directory (bug fix)
-    substring_to_remove = " --model Model"
-    if args.output.endswith(substring_to_remove):
-        args.output = args.output[:-len(substring_to_remove)]
+    # if args.output.endswith(substring_to_remove):
+    #     args.output = args.output[:-len(substring_to_remove)]
+    # if args.send_lips_data_to.endswith(substring_to_remove):
+    #     args.send_lips_data_to = args.send_lips_data_to[:-len(substring_to_remove)]
+    m_command = " --model " + args.model
+    args.output = filename_fix_remove_extra_text(args.output, m_command)
+    args.send_lips_data_to = filename_fix_remove_extra_text(args.send_lips_data_to, m_command)
 
     # Starts output folder in the parent directory unless a full directory was given
     if not os.path.isabs(args.output):
@@ -716,7 +1013,9 @@ if __name__ == "__main__":
         parent_dir = os.path.dirname(os.getcwd())
         args.output = os.path.join(parent_dir, args.output)
 
-    print("Full output directory:", args.output)
+    #print(f"===test args = <{str(args)}>")
+    #print("Full output directory:", args.output)
+    #print(f"===test input args = <{args.input}>")
 
     config = load_config(args.config)
     print_config(config)
@@ -729,12 +1028,11 @@ if __name__ == "__main__":
     
     audio_formats = ".mp3, .wav, .mp4, .mkv, .aac, .flac, .ogg, .wma, .m4a, .alac, .aiff, .pcm, .aa3, .aax, .ac3, .dts, .amr, .opus"
 
-
     if remaining_files is None:
         # This is a new batch, so process all input files
         input_files = []
         for input_path in args.input:
-            input_path = sanitize_directory_path(input_path)
+            input_path = filename_fix_remove_extra_text(input_path, m_command)
             if os.path.isdir(input_path):
                 input_files.extend([os.path.join(input_path, f) for f in os.listdir(input_path) if f.endswith(('.mp4','.mkv','.mp3', '.wav', '.aac', '.flac', '.ogg', '.wma', '.m4a', '.alac', '.aiff', '.pcm', '.aa3', '.aax', '.ac3', '.dts', '.amr', '.opus'))])
             elif os.path.isfile(input_path) and input_path.endswith('.txt'):
@@ -755,13 +1053,38 @@ if __name__ == "__main__":
         print(f"Resuming batch processing with {len(input_files)} remaining files.")
     audio_source_files_count = len(input_files)
     
-    batch_process(input_files, args.output, args.model, config, start_time, item_start_time, audio_source_files_count)
+    extras_base_name = os.path.splitext(os.path.basename(args.input[0]))[0]
     
-    end_time = time.time()
-    processing_time = end_time - start_time
-    if audio_source_files_count>1:
-        print(f"Complete! All Audio to VMD conversion completed for {audio_source_files_count} audio files in {format_time(processing_time)}.")
+    #print(f"===test output args = <{args.output}>")
+
+    if args.extras_mode == "OPTIMIZE_VMD":
+        vmd = VMDFile()
+        vmd.load(args.input[0])
+        extras_output_path = os.path.join(args.output, f"{extras_base_name}_optimized.vmd")
+        optimize_vmd_bones_and_morphs(vmd)
+        vmd.save(extras_output_path)
+        print(f"Optimized VMD saved to: {extras_output_path}")
+    elif args.extras_mode == "REPLACE_LIPS":
+        if not args.send_lips_data_to:
+            print("Error: --send-lips-data-to argument is required for REPLACE_LIPS mode")
+            exit(1)
+        extras_output_path = os.path.join(args.output, f"{os.path.splitext(os.path.basename(args.send_lips_data_to))[0]}_With_Lips_From_{os.path.splitext(os.path.basename(args.input[0]))[0]}.vmd")
+        replace_mouth_frames(args.input[0], args.send_lips_data_to, extras_output_path)
+        print(f"VMD with replaced lips data saved to: {extras_output_path}")
     else:
-        print(f"Complete! All Audio to VMD conversion completed in {format_time(processing_time)}.")
+        # Existing batch processing logic
+        batch_process(input_files, args.output, args.model, config, start_time, item_start_time, audio_source_files_count, args.send_lips_data_to, args.show_final_complete_message)
+
+
+    #batch_process(input_files, args.output, args.model, config, start_time, item_start_time, audio_source_files_count, args.send_lips_data_to)
+    
+
+    if args.show_final_complete_message == True:
+        end_time = time.time()
+        processing_time = end_time - start_time
+        if audio_source_files_count>1:
+            print(f"Complete! All Audio to VMD conversion completed for {audio_source_files_count} audio files in {format_time(processing_time)}.")
+        else:
+            print(f"Complete! All Audio to VMD conversion completed in {format_time(processing_time)}.")
     
 
