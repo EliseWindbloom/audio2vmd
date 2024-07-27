@@ -1,5 +1,5 @@
 #=======================================
-# audio2vmd_gui version 12
+# audio2vmd_gui version 12.1
 # Simple GUI for audio2vmd.py
 #=======================================
 # By Elise Windbloom
@@ -53,8 +53,11 @@ class Audio2VMDGui:
         'o_weight_multiplier': (1.1, "Intensity of the 'お' (O) sound. Increase to get more of a general wide medium circle shape."),
         'u_weight_multiplier': (0.9, "Intensity of the 'う' (U) sound. Increase to get more general small circle-shaped mouth."),
         'max_duration': (300, "Maximum duration for splitting audio in seconds. Set to 0 to disable splitting."),
-        'optimize_vmd': (True, "Automatically optimize the VMD file True, highly recommended to keep this true.")
+        'optimize_vmd': (True, "Automatically optimize the VMD file True, highly recommended to keep this true."),
+        'extras_optimize_vmd_bone_position_tolerance': (0.005, "For Optimizing a VMD (in Extras) with bone position data. Use a tolerance of 0.001 for very high fidelity, but it might not reduce the file size much."),
+        'extras_optimize_vmd_bone_rotation_tolerance': (0.005, "For Optimizing a VMD (in Extras) with bone rotation data. Use a tolerance of 0.001 for very high fidelity, but it might not reduce the file size much.")
     })
+
 
     def __init__(self, master):
         self.a_weight_multiplier_entry = tk.Entry(master)
@@ -63,6 +66,9 @@ class Audio2VMDGui:
         self.u_weight_multiplier_entry = tk.Entry(master)
         self.max_duration_entry = tk.Entry(master)
         self.optimize_vmd_var = tk.BooleanVar()
+        self.last_optimize_vmd_directory = None #remembers your last given directories for the files
+        self.last_input_vmd_directory = None #remembers your last given directories for the files
+        self.last_target_vmd_directory = None #remembers your last given directories for the files
         self.master = master
         master.title("Audio2VMD GUI")
         master.geometry("600x600")
@@ -108,22 +114,25 @@ class Audio2VMDGui:
             ('i_weight_multiplier', 'I Weight Multiplier'),
             ('o_weight_multiplier', 'O Weight Multiplier'),
             ('u_weight_multiplier', 'U Weight Multiplier'),
-            ('max_duration', 'Max Duration'),
+            ('max_duration', 'Max Duration for spliting (in seconds), 0=No spliting'),
+            ('optimize_vmd', 'Optimize VMD Lips'),
+            ('extras_optimize_vmd_bone_position_tolerance', 'Optimize Bone Position Tolerance (for Extras)'),
+            ('extras_optimize_vmd_bone_rotation_tolerance', 'Optimize Bone Rotation Tolerance (for Extras)'),
         ]
 
         for i, (key, label) in enumerate(settings):
             ttk.Label(self.settings_frame, text=label).grid(row=i, column=0, sticky='w', padx=5, pady=5)
-            entry = ttk.Entry(self.settings_frame)
-            entry.grid(row=i, column=1, sticky='ew', padx=5, pady=5)
-            entry.insert(0, str(self.config.get(key, '')))
-            setattr(self, f'{key}_entry', entry)
-
-        # Optimize VMD checkbox
-        self.optimize_vmd_var = tk.BooleanVar(value=self.config.get('optimize_vmd', True))
-        ttk.Checkbutton(self.settings_frame, text='Optimize VMD', variable=self.optimize_vmd_var).grid(row=len(settings), column=0, columnspan=2, sticky='w', padx=5, pady=5)
+            if key == 'optimize_vmd':
+                self.optimize_vmd_var = tk.BooleanVar(value=self.config.get('optimize_vmd', True))
+                ttk.Checkbutton(self.settings_frame, variable=self.optimize_vmd_var).grid(row=i, column=1, sticky='w', padx=5, pady=5)
+            else:
+                entry = ttk.Entry(self.settings_frame)
+                entry.grid(row=i, column=1, sticky='ew', padx=5, pady=5)
+                entry.insert(0, str(self.config.get(key, '')))
+                setattr(self, f'{key}_entry', entry)
 
         # Save button
-        ttk.Button(self.settings_frame, text="Save Settings", command=self.save_config).grid(row=len(settings)+1, column=0, columnspan=2, pady=10)
+        ttk.Button(self.settings_frame, text="Save Settings", command=self.save_config).grid(row=len(settings), column=0, columnspan=2, pady=10)
 
         self.settings_frame.columnconfigure(1, weight=1)
 
@@ -146,7 +155,7 @@ class Audio2VMDGui:
         self.output_dir_entry = ttk.Entry(self.files_frame, width=50)
         self.output_dir_entry.grid(row=3, column=0, columnspan=2, sticky='ew', padx=5, pady=5)
         self.output_dir_entry.insert(0, os.path.join(os.path.dirname(os.getcwd()), "output"))
-        ttk.Button(self.files_frame, text="Browse", command=self.browse_output_dir).grid(row=3, column=2, padx=5, pady=5)
+        ttk.Button(self.files_frame, text="Browse", command=lambda: self.browse_output_dir(self.output_dir_entry.get())).grid(row=3, column=2, padx=5, pady=5)
 
         # Merge lip data into existing VMD
         self.lips_data_frame = ttk.Frame(self.files_frame)
@@ -263,7 +272,23 @@ class Audio2VMDGui:
         messagebox.showinfo("Info", "Settings saved successfully!")
 
     def add_files(self):
-        files = filedialog.askopenfilenames(filetypes=[("Audio files", "*.mp3 *.wav *.mp4 *.mkv *.aac *.flac *.ogg *.wma *.m4a *.alac *.aiff *.pcm *.aa3 *.aax *.ac3 *.dts *.amr *.opus")])
+        initial_dir = None
+        selected_indices = self.files_listbox.curselection()
+        
+        if selected_indices:
+            # Use the directory of the last selected item
+            selected_file = self.files_listbox.get(selected_indices[-1])
+            initial_dir = os.path.dirname(selected_file)
+        elif self.files_listbox.size() > 0:
+            # If no selection but list is not empty, use the last item's directory
+            last_file = self.files_listbox.get(tk.END)
+            initial_dir = os.path.dirname(last_file)
+        
+        files = filedialog.askopenfilenames(
+            filetypes=[("Audio files", "*.mp3 *.wav *.mp4 *.mkv *.aac *.flac *.ogg *.wma *.m4a *.alac *.aiff *.pcm *.aa3 *.aax *.ac3 *.dts *.amr *.opus")],
+            initialdir=initial_dir
+        )
+        
         existing_files = self.files_listbox.get(0, tk.END)
         for file in files:
             if file not in existing_files:
@@ -276,8 +301,14 @@ class Audio2VMDGui:
         except IndexError:
             pass
 
-    def browse_output_dir(self):
-        directory = filedialog.askdirectory(title="Select an Output Folder to save the files at")
+    def browse_output_dir(self, initial_dir=None):
+        if initial_dir is None:
+            initial_dir = self.output_dir_entry.get()
+        
+        directory = filedialog.askdirectory(
+            title="Select an Output Folder to save the files at",
+            initialdir=initial_dir
+        )
         if directory:
             directory_path = Path(directory)
             self.output_dir_entry.delete(0, tk.END)
@@ -331,27 +362,47 @@ class Audio2VMDGui:
             self.master.after(100, self.check_queue)
 
     def optimize_vmd(self):
-        input_file = filedialog.askopenfilename(title="Select a VMD file to optimize",filetypes=[("VMD files", "*.vmd")])
+        initial_dir = self.last_optimize_vmd_directory if self.last_optimize_vmd_directory else None
+        input_file = filedialog.askopenfilename(
+            title="Select a VMD file to optimize",
+            filetypes=[("VMD files", "*.vmd")],
+            initialdir=initial_dir
+        )
         if input_file:
+            self.last_optimize_vmd_directory = os.path.dirname(input_file)
             output_dir = os.path.join(os.path.dirname(input_file), "output")
             #os.makedirs(output_dir, exist_ok=True)
             output_file = os.path.join(output_dir, f"optimized_{os.path.basename(input_file)}")
             self.run_audio2vmd_extras("OPTIMIZE_VMD", input_file, output_file)
 
     def send_vmd_data(self):
-        input_file = filedialog.askopenfilename(title="Select the input VMD file containing lips data",filetypes=[("VMD files", "*.vmd")])
+        # Select input VMD file
+        initial_input_dir = self.last_input_vmd_directory if self.last_input_vmd_directory else None
+        input_file = filedialog.askopenfilename(
+            title="Select the input VMD file containing lips data",
+            filetypes=[("VMD files", "*.vmd")],
+            initialdir=initial_input_dir
+        )
         if input_file:
-            target_file = filedialog.askopenfilename(title="Select the target VMD file to recieve the lips data",filetypes=[("VMD files", "*.vmd")])
+            self.last_input_vmd_directory = os.path.dirname(input_file)
+
+            # Select target VMD file
+            initial_target_dir = self.last_target_vmd_directory if self.last_target_vmd_directory else None
+            target_file = filedialog.askopenfilename(
+                title="Select the target VMD file to receive the lips data",
+                filetypes=[("VMD files", "*.vmd")],
+                initialdir=initial_target_dir
+            )
             if target_file:
+                self.last_target_vmd_directory = os.path.dirname(target_file)
+
                 output_dir = os.path.join(os.path.dirname(input_file), "output")
                 #os.makedirs(output_dir, exist_ok=True)
                 output_file = os.path.join(output_dir, f"merged_{os.path.basename(input_file)}")
                 self.run_audio2vmd_extras("REPLACE_LIPS", input_file, output_file, target_file)
 
-    def run_audio2vmd_extras(self, mode, input_file, output_file, target_file=None):
-        #full_cmd = f'{activate_cmd} && {python_cmd} "{Path(input_file)}" --extras-mode {mode}'
-        #full_cmd = f'{activate_cmd} && {python_cmd} "{input_file}" --output "{output_file}" --extras-mode {mode}'
 
+    def run_audio2vmd_extras(self, mode, input_file, output_file, target_file=None):
         activate_cmd = str(Path("venv") / "Scripts" / "activate.bat")
         python_cmd = "python"
         audio2vmd_script = AUDIO2VMD_FILENAME
@@ -385,10 +436,12 @@ class Audio2VMDGui:
             stderr=subprocess.PIPE,
             text=True,
             bufsize=1,
-            universal_newlines=True
+            universal_newlines=True,
+            creationflags=subprocess.CREATE_NO_WINDOW  # This flag prevents the CMD window from appearing
         )
         self.processing = True
         self.master.after(100, self.check_extras_queue)
+
 
     def check_extras_queue(self):
         if self.process:
