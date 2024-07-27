@@ -341,9 +341,9 @@ def extract_vocals(audio_path, wav_path):
         # Save as WAV using Spleeter's default settings
         audio_adapter.save(wav_path, vocals, sample_rate)
 
-        del separator  # Clear the separator object
-        del prediction  # Clear the prediction dictionary
-        del vocals  # Clear the vocals array
+        #del separator  # Clear the separator object
+        #del prediction  # Clear the prediction dictionary
+        #del vocals  # Clear the vocals array
 
         print(f"Vocals separated and saved to: {wav_path}")
         return wav_path
@@ -414,10 +414,10 @@ def analyze_audio_for_vocals(audio_path):
     # Check if it's vocals-only (very low accompaniment energy compared to vocals)
     is_vocals_only = has_vocals and (accompaniment_energy < 0.1 * vocal_energy)  # Adjust this ratio as needed
     
-    del separator  # Clear the separator object reference 
-    del prediction  # Clear the prediction dictionary reference 
-    del vocals  # Clear the vocals array reference 
-    del accompaniment  # Clear the accompaniment array reference 
+    #del separator  # Clear the separator object reference 
+    #del prediction  # Clear the prediction dictionary reference 
+    #del vocals  # Clear the vocals array reference 
+    #del accompaniment  # Clear the accompaniment array reference 
     return has_vocals, is_vocals_only
 
 def detect_audio_format(audio_path):
@@ -602,7 +602,7 @@ def split_audio(audio_path, output_dir="", secondary_audio_path="", original_is_
         part.export(output_file, format="wav")
         output_files.append(output_file)
 
-        del audio  # Clear the full audio reference after processing
+        #del audio  # Clear the full audio reference after processing
         if secondary_audio_path != "":
             secondary_part = secondary_audio[start:split_point]
             if short_audio_needs_wav_conversion == False:
@@ -611,10 +611,10 @@ def split_audio(audio_path, output_dir="", secondary_audio_path="", original_is_
                 secondary_output_file = os.path.join(output_dir, f"{secondary_base_name}_original.wav")
             secondary_part.export(secondary_output_file, format="wav")
             secondary_output_files.append(secondary_output_file)
-            try:
-                del secondary_audio # Clear the secondary audio reference after processing
-            except NameError as e:
-                pass  # Do nothing and move on
+            # try:
+            #     del secondary_audio # Clear the secondary audio reference after processing
+            # except NameError as e:
+            #     pass  # Do nothing and move on
             
 
         start = split_point
