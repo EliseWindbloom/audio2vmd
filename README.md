@@ -90,7 +90,7 @@ cd..
   - Extras Tab - This lets you do extra operations without needing a audio file:
     - Optimize most any VMD containing lips/face/dance data (new options added to gui/config file for this)
     - Send lips data straight from one VMD file to another VMD file.
-  - One at a time GUI - The gui now process batch list audio files one at a time (without using audio2vmd_gui.py's restart ability), which seems to greatly reduce the memory requirements when running a batch of audio files.
+  - One at a time GUI - The gui now process batch list audio files one at a time (without using audio2vmd_gui.py's restart ability), which seems to reduce the memory requirements when running a batch of audio files.
 #### New in version 12.1
   - GUI's "Browse" remembers file paths - the GUI browse option now remembers the file directories of chosen files and will reopen from their folder (can also open from the selected audio file's folder).
 #### New in version 12.2
