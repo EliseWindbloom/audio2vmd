@@ -88,7 +88,7 @@ cd..
   - Special Characters handling - should be able to handle non-english file paths much better now.
   - The "Run" becomes a "Force Stop" button after clicking on it. Click on "Force Stop" to force the app to stop processing the audio/vmd files.
   - Extras Tab - This lets you do extra operations without needing a audio file:
-    - Optimize most any VMD (new options added to gui/config file for this)
+    - Optimize most any VMD containing lips/face/dance data (new options added to gui/config file for this)
     - Send lips data straight from one VMD file to another VMD file.
   - One at a time GUI - The gui now process batch list audio files one at a time (without using audio2vmd_gui.py's restart ability), which seems to greatly reduce the memory requirements when running a batch of audio files.
 #### New in version 12.1
