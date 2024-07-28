@@ -41,7 +41,7 @@ If you prefer manual installation, use the following commands:
 cd audio2vmd
 python -m venv venv
 call venv\Scripts\activate.bat
-pip install pydub==0.25.1 PyYAML==6.0.1 tqdm==4.66.4 spleeter==2.4.0
+pip install pydub==0.25.1 PyYAML==6.0.1 tqdm==4.66.4 psutil==6.0.0 spleeter==2.4.0
 pip install spleeter==2.3.2
 cd..
 ```
