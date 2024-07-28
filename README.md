@@ -95,7 +95,7 @@ cd..
   - GUI's "Browse" remembers file paths - the GUI browse option now remembers the file directories of chosen files and will reopen from their folder (can also open from the selected audio file's folder).
 #### New in version 12.2
   - Improved "Force Stop" button to help make sure it kills the process correctly when you click on it. (It may give error message(s) due to forcefully stopping it, but it should work fine again if you press "Run" an extra time.)
-  - Model Name added to config file and settings tab. 
+  - Model Name added to config file and gui settings tab. 
   
 ## Credits
 Nawota for the c# Lipsync plugin that this project is loosely based on.  
