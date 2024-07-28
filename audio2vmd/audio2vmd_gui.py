@@ -1,5 +1,5 @@
 #=======================================
-# audio2vmd_gui version 12.1
+# audio2vmd_gui version 12.2
 # Simple GUI for audio2vmd.py
 #=======================================
 # By Elise Windbloom
@@ -48,6 +48,7 @@ class CommentedConfig(OrderedDict):
 
 class Audio2VMDGui:
     DEFAULT_CONFIG = CommentedConfig({
+        'model_name': ("Model", "Name of the model the VMD is for. (max length of 20 characters)"),
         'a_weight_multiplier': (1.2, "Intensity of the 'あ' (A) sound. Increase to make mouth generally open bigger."),
         'i_weight_multiplier': (0.8, "Intensity of the 'い' (I) sound. Increase to get general extra width mouth when talking."),
         'o_weight_multiplier': (1.1, "Intensity of the 'お' (O) sound. Increase to get more of a general wide medium circle shape."),
@@ -110,6 +111,7 @@ class Audio2VMDGui:
     def create_settings_widgets(self):
         # Settings
         settings = [
+            ('model_name', 'Model Name'),
             ('a_weight_multiplier', 'A Weight Multiplier'),
             ('i_weight_multiplier', 'I Weight Multiplier'),
             ('o_weight_multiplier', 'O Weight Multiplier'),
@@ -243,6 +245,7 @@ class Audio2VMDGui:
             self.save_config(self.DEFAULT_CONFIG)
             return self.DEFAULT_CONFIG
         
+
     def save_config(self, config=None):
         if config is None:
             config = CommentedConfig()
@@ -252,6 +255,9 @@ class Audio2VMDGui:
                 
                 if isinstance(entry_widget, tk.Entry):
                     value = entry_widget.get()
+                    if key == 'model_name' and len(value) > 20:
+                        messagebox.showerror("Error", "Model Name must be 20 characters or less. Please make the name shorter.")
+                        return  # Exit the method without saving
                     if isinstance(default_value, int):
                         value = int(value)
                     elif isinstance(default_value, float):
@@ -270,6 +276,7 @@ class Audio2VMDGui:
                 f.write(f"{key}: {value}  # {comment}\n")
 
         messagebox.showinfo("Info", "Settings saved successfully!")
+
 
     def add_files(self):
         initial_dir = None
@@ -467,21 +474,21 @@ class Audio2VMDGui:
             self.output_text.insert(tk.END, "Stopping the process...\n")
             self.output_text.see(tk.END)
             
-            # Terminate the process and all its children
             try:
                 parent = psutil.Process(self.process.pid)
                 for child in parent.children(recursive=True):
-                    child.terminate()
-                parent.terminate()
+                    child.kill()
+                parent.kill()
             except psutil.NoSuchProcess:
                 pass  # Process already terminated
+            except Exception as e:
+                self.output_text.insert(tk.END, f"Error while stopping process: {str(e)}\n")
             
-            # Re-enable the button and change text back to "Run"
-            self.run_button.config(state='normal', text="Run")
-            self.processing = False
             self.process = None
+            self.processing = False
+            self.run_button.config(state='normal', text="Run")
             
-            self.output_text.insert(tk.END, "Process stopped.\n")
+            self.output_text.insert(tk.END, "Process stopped. (You may need to press \"Run\" twice to start again.)\n")
             self.output_text.see(tk.END)
 
     def process_files_with_debug_messages(self, input_files, output_dir, send_lips_data_to):
@@ -540,33 +547,42 @@ class Audio2VMDGui:
         self.queue.put("DONE")
 
     def process_files(self, input_files, output_dir, send_lips_data_to):
-        activate_cmd = r"call venv\Scripts\activate.bat"
-        python_cmd = "python " + AUDIO2VMD_FILENAME
+        activate_cmd = str(Path("venv") / "Scripts" / "activate.bat")
+        python_cmd = "python"
+        audio2vmd_script = AUDIO2VMD_FILENAME
 
         start_time = time.time()
 
         for file in input_files:
-            input_file_str = f'"{file}"'
-            full_cmd = f'{activate_cmd} && {python_cmd} {input_file_str} --output "{output_dir}"'
+            if not self.processing:
+                break
+
+            cmd = [
+                "cmd", "/c",
+                "call", activate_cmd, "&&",
+                python_cmd,
+                audio2vmd_script,
+                str(Path(file)),
+                "--output", str(Path(output_dir)),
+                "--show-final-complete-message", "False"
+            ]
 
             if send_lips_data_to:
-                full_cmd += f' --send-lips-data-to "{send_lips_data_to}"'
-
-            full_cmd += f' --show-final-complete-message "False"'
+                cmd.extend(["--send-lips-data-to", str(Path(send_lips_data_to))])
 
             self.queue.put(f"Processing file: {file}")
 
             try:
                 self.process = subprocess.Popen(
-                    full_cmd, 
-                    stdout=subprocess.PIPE, 
-                    stderr=subprocess.STDOUT,  # Redirect stderr to stdout
-                    text=True, 
-                    bufsize=1, 
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1,
                     universal_newlines=True,
                     encoding='utf-8',
                     errors='replace',
-                    shell=True
+                    creationflags=subprocess.CREATE_NO_WINDOW
                 )
 
                 while self.process:
@@ -585,7 +601,8 @@ class Audio2VMDGui:
             finally:
                 self.process = None
 
-        self.queue.put(f"Complete! All Audio to VMD conversion completed in {format_time(time.time() - start_time)}")
+        if self.processing:
+            self.queue.put(f"Complete! All Audio to VMD conversion completed in {format_time(time.time() - start_time)}")
         self.queue.put("DONE")
 
 
