@@ -49,9 +49,10 @@ REM Activate the virtual environment
 call venv\Scripts\activate.bat
 
 REM Run the Python script with a hidden command prompt
-start /b pythonw audio2vmd_gui.py
+python launch_gui.py
 
 REM Run the Python script with a minimized command prompt
 REM for minimized instead, use: start /min cmd /c python audio2vmd_gui.py
+REM for hidden (less robust way): start /b pythonw audio2vmd_gui.py
 
 exit
