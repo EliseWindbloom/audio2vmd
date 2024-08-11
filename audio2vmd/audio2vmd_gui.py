@@ -1,5 +1,5 @@
 #=======================================
-# audio2vmd_gui version 12.2
+# audio2vmd_gui version 13
 # Simple GUI for audio2vmd.py
 #=======================================
 # By Elise Windbloom
@@ -459,15 +459,27 @@ class Audio2VMDGui:
                     # Re-enable buttons
                     self.optimize_vmd_button.config(state='normal')
                     self.send_vmd_data_button.config(state='normal')
+                    # Add completion message
+                    self.extras_output_text.insert(tk.END, "Process completed.\n")
+                    self.extras_output_text.see(tk.END)
                     return
                 if output:
                     self.extras_output_text.insert(tk.END, output)
                     self.extras_output_text.see(tk.END)
-            except AttributeError:
-                pass
+            except Exception as e:
+                self.extras_output_text.insert(tk.END, f"Error: {str(e)}\n")
+                self.extras_output_text.see(tk.END)
+                self.processing = False
+                self.optimize_vmd_button.config(state='normal')
+                self.send_vmd_data_button.config(state='normal')
+                return
         
         if self.processing:
             self.master.after(100, self.check_extras_queue)
+        else:
+            # Ensure buttons are re-enabled if process ends unexpectedly
+            self.optimize_vmd_button.config(state='normal')
+            self.send_vmd_data_button.config(state='normal')
 
     def stop_process(self):
         if self.processing and self.process:
