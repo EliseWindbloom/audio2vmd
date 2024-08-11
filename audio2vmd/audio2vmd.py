@@ -1,5 +1,5 @@
 #=======================================
-# audio2vmd version 12.2
+# audio2vmd version 13
 # This script automatically converts a audio file to a vmd lips data file
 #=======================================
 # Created by Elise Windbloom
@@ -10,6 +10,7 @@ import sys
 import time
 import struct
 import pathlib
+from pathlib import Path
 import numpy as np
 from scipy.io import wavfile
 from scipy.signal import spectrogram
@@ -20,19 +21,13 @@ import yaml
 from collections import OrderedDict
 import argparse
 from tqdm import tqdm
-import string
-import json
-import subprocess
+import psutil
 import logging
 import tensorflow as tf
-import traceback
-import shlex
-from pathlib import Path
 import io
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
-
 
 # Set TensorFlow logging level to only show fatal errors
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
