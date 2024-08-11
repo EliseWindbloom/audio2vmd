@@ -1,4 +1,4 @@
-# audio2vmd (v12)
+# audio2vmd (v13)
 Completely automatically convert audio to vmd lips data using python cmd/automatic batch-file, with automatic vocals extraction. Using this, you can make your MMD models lip-sync to any song or speech audio. 
 
 ![topimg](audio2vmd/img/audio2vmd_1.png)
@@ -31,7 +31,8 @@ Completely automatically convert audio to vmd lips data using python cmd/automat
  
 # Installing audio2vmd
 ## Install automatically using 1-click installer batch file
-1) Download and install [Python](https://www.python.org/downloads/windows/)
+1) Download and install [Python 3.10.6](https://www.python.org/downloads/release/python-3106/)  
+   - Check the 'Add Python 3.10 to PATH' box during installation
 2) Download latest version of [audio2vmd](https://github.com/EliseWindbloom/audio2vmd/archive/refs/heads/main.zip)
 3) Unzip audio2vmd and run "install.bat" to install automatically, this may take awhile to download all the required files.
 
@@ -45,6 +46,7 @@ python -m venv venv
 call venv\Scripts\activate.bat
 pip install pydub==0.25.1 PyYAML==6.0.1 tqdm==4.66.4 psutil==6.0.0 spleeter==2.4.0
 pip install spleeter==2.3.2
+pip install numpy==1.22.4
 cd..
 ```
 
@@ -84,7 +86,9 @@ cd..
   
 ![gui1](audio2vmd/img/gui1.png)
 
-## New features in version 12
+## New features in version 13
+  - Improved error handling and improved installer
+#### New features in version 12
   - Special Characters handling - should be able to handle non-english file paths much better now.
   - The "Run" becomes a "Force Stop" button after clicking on it. Click on "Force Stop" to force the app to stop processing the audio/vmd files.
   - Extras Tab - This lets you do extra operations without needing a audio file:
