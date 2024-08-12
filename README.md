@@ -34,10 +34,12 @@ Completely automatically convert audio to vmd lips data using python cmd/automat
 1) Download and install [Python 3.10.6](https://www.python.org/downloads/release/python-3106/)  
    - Check the 'Add Python 3.10 to PATH' box [during installation](audio2vmd/img/pathbox.jpg)
 2) Download latest version of [audio2vmd](https://github.com/EliseWindbloom/audio2vmd/archive/refs/heads/main.zip)
-3) Unzip audio2vmd and run "install.bat" to install automatically, this may take awhile to download all the required files.
+3) Unzip audio2vmd and run "install (right click, run as admin).bat" (right click it and run as administrator) to install automatically, this may take awhile to download all the required files.
 
 ## Installing manually 
-If you would like to manually install it instead, here are the commands for command line:
+If you would like to manually install it instead, follow these steps: 
+Download/install [Python 3.10.6](https://www.python.org/downloads/release/python-3106/) and [FFmpeg](https://github.com/BtbN/FFmpeg-Builds/releases) and add them both to system PATH. Also make sure you have [Microsoft Visual C++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe) installed on your pc.  
+Then run these commands in command line to install:  
 ```
 git clone https://github.com/EliseWindbloom/audio2vmd.git
 cd audio2vmd
