@@ -98,7 +98,7 @@ cd..
   - Added automatic ffmpeg install to installer (installs automatically if not found on system)
   - Improved the GUI launcher to hopefully make it much better at launching without issue
 #### New features in version 13.3
-  - Added tooltips display for GUI settings tab (this will display the comments in the config.yaml file)
+  - Added tooltips display for GUI settings tab
 #### New features in version 12
   - Special Characters handling - should be able to handle non-english file paths much better now.
   - The "Run" becomes a "Force Stop" button after clicking on it. Click on "Force Stop" to force the app to stop processing the audio/vmd files.
