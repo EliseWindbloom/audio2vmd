@@ -36,7 +36,7 @@ Completely automatically convert audio to vmd lips data using python cmd/automat
 2) Download latest version of [audio2vmd](https://github.com/EliseWindbloom/audio2vmd/archive/refs/heads/main.zip)
 3) Unzip audio2vmd and run "install.bat" (Do not run as admin) to install automatically, this may take awhile to download all the required files.
    - If audio2vmd is processing slow, try setting the Windows paging file to 30000 MB or more, which may give you a signficent speed boost (make sure you have this much free space on your drive), [here's a quick video guide](https://www.youtube.com/watch?v=QNrakvX8wZs).
-   - For an additional extra speed boost, try installing audio2vmd on an SSD (if you have one) instead of a Hard Disk Drive.
+   - For an additional speed boost, try installing audio2vmd on an SSD (if you have one) instead of a Hard Disk Drive.
 
 ## Installing manually 
 If you would like to manually install it instead, follow these steps: 
