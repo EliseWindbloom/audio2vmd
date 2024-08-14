@@ -1,5 +1,5 @@
 #=======================================
-# audio2vmd_gui version 13
+# audio2vmd_gui version 13.3
 # Simple GUI for audio2vmd.py
 #=======================================
 # By Elise Windbloom
@@ -108,6 +108,31 @@ class Audio2VMDGui:
         # Flag to track if processing is ongoing
         self.processing = False
 
+    def create_tooltip(self, widget, text):
+        def enter(event):
+            x = y = 0
+            x, y, _, _ = widget.bbox("insert")
+            x += widget.winfo_rootx() + 25
+            y += widget.winfo_rooty() + 25
+            
+            # Create a toplevel window
+            self.tooltip = tk.Toplevel(widget)
+            self.tooltip.wm_overrideredirect(True)
+            self.tooltip.wm_geometry(f"+{x}+{y}")
+            
+            label = tk.Label(self.tooltip, text=text, justify='left',
+                            background="#ffffff", relief='solid', borderwidth=1,
+                            wraplength=300)  # Increase wraplength to 300 (or your preferred width)
+            label.pack(ipadx=1)
+        
+        def leave(event):
+            if self.tooltip:
+                self.tooltip.destroy()
+        
+        widget.bind('<Enter>', enter)
+        widget.bind('<Leave>', leave)
+
+
     def create_settings_widgets(self):
         # Settings
         settings = [
@@ -116,17 +141,21 @@ class Audio2VMDGui:
             ('i_weight_multiplier', 'I Weight Multiplier'),
             ('o_weight_multiplier', 'O Weight Multiplier'),
             ('u_weight_multiplier', 'U Weight Multiplier'),
-            ('max_duration', 'Max Duration for spliting (in seconds), 0=No spliting'),
+            ('max_duration', 'Max Duration for splitting (in seconds), 0=No splitting'),
             ('optimize_vmd', 'Optimize VMD Lips'),
             ('extras_optimize_vmd_bone_position_tolerance', 'Optimize Bone Position Tolerance (for Extras)'),
             ('extras_optimize_vmd_bone_rotation_tolerance', 'Optimize Bone Rotation Tolerance (for Extras)'),
         ]
 
         for i, (key, label) in enumerate(settings):
-            ttk.Label(self.settings_frame, text=label).grid(row=i, column=0, sticky='w', padx=5, pady=5)
+            label_widget = ttk.Label(self.settings_frame, text=label)
+            label_widget.grid(row=i, column=0, sticky='w', padx=5, pady=5)
+            self.create_tooltip(label_widget, self.get_tooltip_text(key))
+
             if key == 'optimize_vmd':
                 self.optimize_vmd_var = tk.BooleanVar(value=self.config.get('optimize_vmd', True))
-                ttk.Checkbutton(self.settings_frame, variable=self.optimize_vmd_var).grid(row=i, column=1, sticky='w', padx=5, pady=5)
+                checkbox = ttk.Checkbutton(self.settings_frame, variable=self.optimize_vmd_var)
+                checkbox.grid(row=i, column=1, sticky='w', padx=5, pady=5)
             else:
                 entry = ttk.Entry(self.settings_frame)
                 entry.grid(row=i, column=1, sticky='ew', padx=5, pady=5)
@@ -137,6 +166,12 @@ class Audio2VMDGui:
         ttk.Button(self.settings_frame, text="Save Settings", command=self.save_config).grid(row=len(settings), column=0, columnspan=2, pady=10)
 
         self.settings_frame.columnconfigure(1, weight=1)
+
+    def get_tooltip_text(self, key):
+        for keytest, (default_value, comment) in self.DEFAULT_CONFIG.items():
+            if keytest == key:
+                return comment
+
 
     def create_files_widgets(self):
         # Input files list
