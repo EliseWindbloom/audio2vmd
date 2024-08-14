@@ -7,6 +7,6 @@ i_weight_multiplier: 0.8  # Intensity of the 'い' (I) sound. Increase to get ge
 o_weight_multiplier: 1.1  # Intensity of the 'お' (O) sound. Increase to get more of a general wide medium circle shape.
 u_weight_multiplier: 0.9  # Intensity of the 'う' (U) sound. Increase to get more general small circle-shaped mouth.
 max_duration: 300  # Maximum duration for splitting audio in seconds. Set to 0 to disable splitting.
-optimize_vmd: True  # Automatically optimize the VMD file True, highly recommended to keep this true.
+optimize_vmd: True  # Automatically optimize the VMD file if True, highly recommended to keep this true.
 extras_optimize_vmd_bone_position_tolerance: 0.005  # For Optimizing a VMD (in Extras) with bone position data. Use a tolerance of 0.001 for very high fidelity, but it might not reduce the file size much.
 extras_optimize_vmd_bone_rotation_tolerance: 0.005  # For Optimizing a VMD (in Extras) with bone rotation data. Use a tolerance of 0.001 for very high fidelity, but it might not reduce the file size much.
