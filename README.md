@@ -28,6 +28,11 @@ Completely automatically convert audio to vmd lips data using python cmd/automat
   - Can optionally send the created VMD lips data to another VMD file. Using this, you can send the VMD lips directly to a VMD containing things such as an body animations. 
 - **Ready for MMD**
   - Will automatically convert audio to wav format if it isn't in wav already. Combined with the VMD, they're ready to launch with MMD/MMM.(This won't move/delete your original audio)
+
+# Requirements
+- Windows 10 or higher (It's possible this may work on other Operating Systems, but was only designed for windows)  
+- 12GB or more RAM recommend (it may work with much less RAM as well)  
+- 4GB of free Hard Drive/SSD space (if you need windows paging file for a speed boost, it's recommended that you have at least 34GB free) 
  
 # Installing audio2vmd
 ## Install automatically using 1-click installer batch file
@@ -53,6 +58,11 @@ pip install spleeter==2.3.2
 pip install numpy==1.22.4
 cd..
 ```
+
+## Uninstalling
+To uninstall, simply delete the "audio2vmd" folder
+ - (Optional) if you don't want ffmpeg available for your system, delete the "C:\Program Files\FFmpeg" folder 
+ - (Optional) if you don't want python on your system, run the python installer again and choose the remove option to uninstall python.
 
 # Usage
 **You have two ways you can easily use audio2vmd:**
