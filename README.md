@@ -61,7 +61,7 @@ cd..
 
 ## Uninstalling
 To uninstall, simply delete the "audio2vmd" folder
- - (Optional) if you don't want ffmpeg available for your system, delete the "C:\Program Files\FFmpeg" folder 
+ - (Optional) if you don't want FFmpeg (a video/audio processing tool) available for your system, delete the "C:\Program Files\FFmpeg" folder to uninstall ffmpeg.
  - (Optional) if you don't want python on your system, run the python installer again and choose the remove option to uninstall python.
 
 # Usage
