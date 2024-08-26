@@ -1,5 +1,5 @@
 #=======================================
-# audio2vmd version 13.4
+# audio2vmd version 13.5
 # This script automatically converts a audio file to a vmd lips data file
 #=======================================
 # Created by Elise Windbloom
@@ -20,10 +20,10 @@ from pydub import AudioSegment
 import yaml
 from collections import OrderedDict
 import argparse
-from tqdm import tqdm
-import psutil
+#from tqdm import tqdm
+#import psutil
 import logging
-import tensorflow as tf
+#import tensorflow as tf
 import io
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
@@ -310,6 +310,7 @@ def format_time(seconds):
     else:
         minutes, secs = divmod(seconds, 60)
         return f"{int(minutes)} minutes and {secs:.2f} seconds"
+
 
 def extract_vocals(audio_path, wav_path):
     audio_path = os.path.normpath(audio_path)
@@ -800,6 +801,9 @@ def audio_to_vmd(input_audio, vmd_file, model_name, config):
     
     #check if audio is already voice only
     input_audio_has_vocals, input_audio_is_vocals_only = analyze_audio_for_vocals(os.path.abspath(input_audio))
+    #memory usage test force to say it's vocals only
+    #input_audio_has_vocals = True 
+    #input_audio_is_vocals_only = True
     #Prints audio duration information
     temp_duration = get_audio_duration(input_audio, True)
     print(f"Audio filename: {os.path.basename(input_audio)}")
@@ -840,11 +844,11 @@ def audio_to_vmd(input_audio, vmd_file, model_name, config):
 
     print("Converting Audio to VMD...")
 
-    # Now process the temporary WAV file as before
-    sample_rate, audio = wavfile.read(temp_wav)
+    # Use memory-mapped file reading
+    sample_rate, audio = wavfile.read(temp_wav, mmap=True)
     audio = np.mean(audio, axis=1) if len(audio.shape) > 1 else audio
-    audio = audio / np.max(np.abs(audio))
-
+    max_abs_value = np.max(np.abs(audio))
+    
     # Compute spectrogram
     frame_rate = 30
     window_size = int(sample_rate / frame_rate)
@@ -862,38 +866,44 @@ def audio_to_vmd(input_audio, vmd_file, model_name, config):
     smoothing_window = 5
     vowel_weights_history = []
 
-    # Process each frame
-    for frame in range(Sxx.shape[1]):
-        # Calculate vowel weights
-        vowel_weights = {v: np.mean(Sxx[np.argmin(np.abs(f - low)):np.argmin(np.abs(f - high)), frame])
-                         for v, (low, high) in vowel_ranges.items()}
+    # Process frames in batches
+    batch_size = 1000  # Adjust this value based on available memory
+    for batch_start in range(0, Sxx.shape[1], batch_size):
+        batch_end = min(batch_start + batch_size, Sxx.shape[1])
+        batch_Sxx = Sxx[:, batch_start:batch_end]
 
-        # Normalize weights
-        total_weight = sum(vowel_weights.values())
-        if total_weight > 0:
-            vowel_weights = {v: w / total_weight for v, w in vowel_weights.items()}
+        for frame in range(batch_start, batch_end):
+            rel_frame = frame - batch_start
+            # Calculate vowel weights
+            vowel_weights = {v: np.mean(batch_Sxx[np.argmin(np.abs(f - low)):np.argmin(np.abs(f - high)), rel_frame])
+                             for v, (low, high) in vowel_ranges.items()}
 
-        # Apply smoothing
-        vowel_weights_history.append(vowel_weights)
-        if len(vowel_weights_history) > smoothing_window:
-            vowel_weights_history.pop(0)
-        smoothed_weights = {v: np.mean([w[v] for w in vowel_weights_history]) for v in vowel_weights}
+            # Normalize weights
+            total_weight = sum(vowel_weights.values())
+            if total_weight > 0:
+                vowel_weights = {v: w / total_weight for v, w in vowel_weights.items()}
 
-        energy = np.sum(Sxx[:, frame])
-        is_speech = energy > 0.01 * np.max(Sxx)
+            # Apply smoothing
+            vowel_weights_history.append(vowel_weights)
+            if len(vowel_weights_history) > smoothing_window:
+                vowel_weights_history.pop(0)
+            smoothed_weights = {v: np.mean([w[v] for w in vowel_weights_history]) for v in vowel_weights}
 
-        # Use the config in the vowel weight adjustment
-        # Detect speech and adjust weights
-        if is_speech:
-            energy_scale = np.clip(energy / np.max(Sxx), 0, 1) ** 0.5
-            adjusted_weights = adjust_vowel_weights(smoothed_weights, config)
+            energy = np.sum(batch_Sxx[:, rel_frame])
+            is_speech = energy > 0.01 * np.max(Sxx)
 
-            for vowel, weight in adjusted_weights.items():
-                scaled_weight = min(weight * energy_scale, 1.0) #change this to increase/decrease weight effect
-                vmd.add_morph_frame(vowel, frame, scaled_weight)
-        else:
-            for vowel in vowel_weights:
-                vmd.add_morph_frame(vowel, frame, 0)
+            # Use the config in the vowel weight adjustment
+            # Detect speech and adjust weights
+            if is_speech:
+                energy_scale = np.clip(energy / np.max(Sxx), 0, 1) ** 0.5
+                adjusted_weights = adjust_vowel_weights(smoothed_weights, config)
+
+                for vowel, weight in adjusted_weights.items():
+                    scaled_weight = min(weight * energy_scale, 1.0)
+                    vmd.add_morph_frame(vowel, frame, scaled_weight)
+            else:
+                for vowel in vowel_weights:
+                    vmd.add_morph_frame(vowel, frame, 0)
 
     if config.get('optimize_vmd', True):
         optimize_vmd_data(vmd)
