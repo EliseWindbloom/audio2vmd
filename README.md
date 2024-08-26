@@ -1,4 +1,4 @@
-# audio2vmd (v13.3)
+# audio2vmd (v13.5)
 Completely automatically convert audio to vmd lips data using python cmd/automatic batch-file, with automatic vocals extraction. Using this, you can make your MMD models lip-sync to any song or speech audio. 
 
 ![topimg](audio2vmd/img/audio2vmd_1.png)
@@ -109,6 +109,9 @@ To uninstall, simply delete the "audio2vmd" folder
   - Improved the GUI launcher to hopefully make it much better at launching without issue
 #### New features in version 13.3
   - Added tooltips display for GUI settings tab
+#### New features in version 13.4/13.5
+  - Fixed bug where there was double code in audio2vmd.py
+  - Possible minor reduced memory usage
 #### New features in version 12
   - Special Characters handling - should be able to handle non-english file paths much better now.
   - The "Run" becomes a "Force Stop" button after clicking on it. Click on "Force Stop" to force the app to stop processing the audio/vmd files.
