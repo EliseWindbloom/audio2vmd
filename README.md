@@ -31,7 +31,7 @@ Completely automatically convert audio to vmd lips data using python cmd/automat
 
 # Requirements
 - Windows 10 or higher (It's possible this may work on other Operating Systems, but was only designed for windows)  
-- 4GB RAM recommended (it may work with much less RAM as well)  
+- 4GB RAM recommended (it may work with less RAM as well)  
  
 # Installing audio2vmd
 ## Install automatically using 1-click installer batch file
