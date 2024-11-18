@@ -1,5 +1,5 @@
 #=======================================
-# audio2vmd_gui version 13.3
+# audio2vmd_gui version 16
 # Simple GUI for audio2vmd.py
 #=======================================
 # By Elise Windbloom
@@ -49,6 +49,7 @@ class CommentedConfig(OrderedDict):
 class Audio2VMDGui:
     DEFAULT_CONFIG = CommentedConfig({
         'model_name': ("Model", "Name of the model the VMD is for. (max length of 20 characters)"),
+        'separate_vocals': ("automatic", "Controls vocal separation behavior: 'automatic' (detect and separate if needed), 'always' (skip detection and always separate), or 'never' (skip detection and assume file is already vocals-only). 'automatic' recommended if any of your files have music/background noise, otherwise 'never' is recommended for a big speed boost."),
         'a_weight_multiplier': (1.2, "Intensity of the 'あ' (A) sound. Increase to make mouth generally open bigger."),
         'i_weight_multiplier': (0.8, "Intensity of the 'い' (I) sound. Increase to get general extra width mouth when talking."),
         'o_weight_multiplier': (1.1, "Intensity of the 'お' (O) sound. Increase to get more of a general wide medium circle shape."),
@@ -66,7 +67,8 @@ class Audio2VMDGui:
         self.o_weight_multiplier_entry = tk.Entry(master)
         self.u_weight_multiplier_entry = tk.Entry(master)
         self.max_duration_entry = tk.Entry(master)
-        self.optimize_vmd_var = tk.BooleanVar()
+        self.optimize_vmd_var = tk.BooleanVar(value=True)  # Set default value to True
+        self.separate_vocals_var = tk.StringVar(value="automatic")  # Add variable for separate_vocals
         self.last_optimize_vmd_directory = None #remembers your last given directories for the files
         self.last_input_vmd_directory = None #remembers your last given directories for the files
         self.last_target_vmd_directory = None #remembers your last given directories for the files
@@ -79,6 +81,10 @@ class Audio2VMDGui:
         master.iconbitmap(icon_path)
 
         self.config = self.load_config()
+        
+        # Update variables with loaded config values
+        self.optimize_vmd_var.set(self.config.get('optimize_vmd', True))
+        self.separate_vocals_var.set(self.config.get('separate_vocals', 'automatic'))
 
         self.process = None
 
@@ -137,14 +143,15 @@ class Audio2VMDGui:
         # Settings
         settings = [
             ('model_name', 'Model Name'),
+            ('separate_vocals', 'Separate Vocals'),
             ('a_weight_multiplier', 'A Weight Multiplier'),
             ('i_weight_multiplier', 'I Weight Multiplier'),
             ('o_weight_multiplier', 'O Weight Multiplier'),
             ('u_weight_multiplier', 'U Weight Multiplier'),
             ('max_duration', 'Max Duration for splitting (in seconds), 0=No splitting'),
-            ('optimize_vmd', 'Optimize VMD Lips'),
-            ('extras_optimize_vmd_bone_position_tolerance', 'Optimize Bone Position Tolerance (for Extras)'),
-            ('extras_optimize_vmd_bone_rotation_tolerance', 'Optimize Bone Rotation Tolerance (for Extras)'),
+            ('optimize_vmd', 'Optimize VMD'),
+            ('extras_optimize_vmd_bone_position_tolerance', 'VMD Optimize Position Tolerance'),
+            ('extras_optimize_vmd_bone_rotation_tolerance', 'VMD Optimize Rotation Tolerance')
         ]
 
         for i, (key, label) in enumerate(settings):
@@ -153,9 +160,14 @@ class Audio2VMDGui:
             self.create_tooltip(label_widget, self.get_tooltip_text(key))
 
             if key == 'optimize_vmd':
-                self.optimize_vmd_var = tk.BooleanVar(value=self.config.get('optimize_vmd', True))
                 checkbox = ttk.Checkbutton(self.settings_frame, variable=self.optimize_vmd_var)
                 checkbox.grid(row=i, column=1, sticky='w', padx=5, pady=5)
+            elif key == 'separate_vocals':
+                widget = ttk.Combobox(self.settings_frame, textvariable=self.separate_vocals_var, 
+                                    values=["automatic", "always", "never"], 
+                                    state="readonly")
+                widget.set(self.config.get('separate_vocals', 'automatic'))
+                widget.grid(row=i, column=1, sticky='ew', padx=5, pady=5)
             else:
                 entry = ttk.Entry(self.settings_frame)
                 entry.grid(row=i, column=1, sticky='ew', padx=5, pady=5)
@@ -283,26 +295,33 @@ class Audio2VMDGui:
 
     def save_config(self, config=None):
         if config is None:
-            config = CommentedConfig()
-            for key, (default_value, comment) in self.DEFAULT_CONFIG.items():
-                entry_widget = self.__dict__.get(f"{key}_entry")
-                var_widget = self.__dict__.get(f"{key}_var")
-                
-                if isinstance(entry_widget, tk.Entry):
-                    value = entry_widget.get()
+            # Initialize with DEFAULT_CONFIG instead of empty CommentedConfig
+            config = CommentedConfig(self.DEFAULT_CONFIG)
+
+        # Copy comments from DEFAULT_CONFIG
+        for key, (default_value, comment) in self.DEFAULT_CONFIG.items():
+            try:
+                if key == 'optimize_vmd':
+                    value = self.optimize_vmd_var.get()
+                elif key == 'separate_vocals':
+                    value = self.separate_vocals_var.get()
+                elif hasattr(self, f'{key}_entry'):
+                    var_widget = getattr(self, f'{key}_entry')
+                    value = var_widget.get() if var_widget.get() != '' else default_value  # Use default if empty
                     if key == 'model_name' and len(value) > 20:
                         messagebox.showerror("Error", "Model Name must be 20 characters or less. Please make the name shorter.")
                         return  # Exit the method without saving
                     if isinstance(default_value, int):
-                        value = int(value)
+                        value = int(value) if value != '' else default_value
                     elif isinstance(default_value, float):
-                        value = float(value)
-                elif isinstance(var_widget, tk.BooleanVar):
-                    value = var_widget.get()
+                        value = float(value) if value != '' else default_value
                 else:
                     value = default_value  # Fallback in case of unexpected type
 
                 config[key] = (value, comment)
+            except (ValueError, AttributeError) as e:
+                messagebox.showerror("Error", f"Invalid value for {key}: {str(e)}")
+                return
 
         with open('config.yaml', 'w', encoding='utf-8') as f:
             f.write("# Configuration file for audio2vmd\n")
@@ -747,4 +766,3 @@ if __name__ == "__main__":
     root = tk.Tk()
     app = Audio2VMDGui(root)
     root.mainloop()
-
