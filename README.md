@@ -1,4 +1,4 @@
-# audio2vmd (v13.5)
+# audio2vmd (v16)
 Completely automatically convert audio to vmd lips data using python cmd/automatic batch-file, with automatic vocals extraction. Using this, you can make your MMD models lip-sync to any song or speech audio. 
 
 ![topimg](audio2vmd/img/audio2vmd_1.png)
@@ -31,8 +31,7 @@ Completely automatically convert audio to vmd lips data using python cmd/automat
 
 # Requirements
 - Windows 10 or higher (It's possible this may work on other Operating Systems, but was only designed for windows)  
-- 12GB or more RAM recommend (it may work with much less RAM as well)  
-- 4GB of free Hard Drive/SSD space (if you need windows paging file for a speed boost, it's recommended that you have at least 34GB free) 
+- 4GB RAM recommended (it may work with much less RAM as well)  
  
 # Installing audio2vmd
 ## Install automatically using 1-click installer batch file
@@ -40,7 +39,6 @@ Completely automatically convert audio to vmd lips data using python cmd/automat
    - Check the 'Add Python 3.10 to PATH' box [during installation](audio2vmd/img/pathbox.jpg)
 2) Download latest version of [audio2vmd](https://github.com/EliseWindbloom/audio2vmd/archive/refs/heads/main.zip)
 3) Unzip audio2vmd and run "install.bat" (Do not run as admin) to install automatically, this may take awhile to download all the required files.
-   - If audio2vmd is processing slow or running out of memory, try setting the Windows paging file to 30000 MB or more, which may give you a significant speed boost and fix memory issues (make sure you have this much free space on your drive), [here's a quick video guide](https://www.youtube.com/watch?v=QNrakvX8wZs).
    - For an additional speed boost, try installing audio2vmd on an SSD (if you have one) instead of a Hard Disk Drive.
 
 ## Installing manually 
@@ -53,9 +51,8 @@ cd audio2vmd
 cd audio2vmd
 python -m venv venv
 call venv\Scripts\activate.bat
-pip install pydub==0.25.1 PyYAML==6.0.1 tqdm==4.66.4 psutil==6.0.0 spleeter==2.4.0
-pip install spleeter==2.3.2
-pip install numpy==1.22.4
+pip install torch==2.5.1+cpu torchvision==0.20.1+cpu torchaudio==2.5.1+cpu --index-url https://download.pytorch.org/whl/cpu
+pip install openunmix==1.3.0 numpy==1.26.3 scipy==1.14.1 pyyaml==6.0.1 pydub==0.25.1 PyYAML==6.0.1 tqdm==4.66.4 psutil==6.0.0
 cd..
 ```
 
@@ -100,7 +97,22 @@ To uninstall, simply delete the "audio2vmd" folder
   
 ![gui1](audio2vmd/img/gui1.png)
 
-## New features in version 13
+## New features in version 16
+  - **Optimizations, huge speed improvement and lowering of system requirements**
+  - Replaced spleeter(which uses tensorflow) with openunmix to reduce memory usage/increase cpu optimization
+  - Huge speed boost, was over twice as fast when testing it (an audio file that took 1min6secs to convert, now takes about 31seconds to convert)
+  - Significant code optimization to reduce memory usage without messing up the vmd output
+  - Should no longer require a paging file or a lot of memory to use
+  - "Seperate Vocals" setting added to audio2vmd.py along with GUI and config file:
+    - Can be set to "automatic", "always", or "never" to choose how audio2vmd seperates vocal files.
+    - 'automatic' = detect and separate if needed
+    - 'always' = skip detection and always separate all audio files
+    - 'never' = skip detection and assume file is already vocals-only).
+    - "automatic" is recommended if any of your files have music/background noise, otherwise "never" is recommended for a additional big speed boost.
+
+#### Versions 14 & 15 were for research and were developmental
+
+#### New features in version 13
   - Improved error handling and improved installer
   - removed unneeded imports from audio2vmd
   - created gui launcher
