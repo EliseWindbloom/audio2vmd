@@ -72,14 +72,11 @@ REM Create a virtual environment
 "%PYTHON_CMD%" -m venv venv
 call venv\Scripts\activate.bat
 
-REM Install required packages
-pip install pydub==0.25.1 PyYAML==6.0.1 tqdm==4.66.4 psutil==6.0.0 spleeter==2.4.0
+REM Install torch packages (using cpu for compatiblity)
+pip install torch==2.5.1+cpu torchvision==0.20.1+cpu torchaudio==2.5.1+cpu --index-url https://download.pytorch.org/whl/cpu
 
-REM Install more compatible version of spleeter over it to avoid errors
-pip install spleeter==2.3.2
-
-REM Install numpy again in case of errors
-pip install numpy==1.22.4
+REM Install Open-Unmix and additional required packages
+pip install openunmix==1.3.0 numpy==1.26.3 scipy==1.14.1 pyyaml==6.0.1 pydub==0.25.1 PyYAML==6.0.1 tqdm==4.66.4 psutil==6.0.0
 
 REM Generate a list of installed packages
 pip list > installed_list.txt
@@ -88,7 +85,7 @@ REM Go back to bat file folder
 cd..
 
 echo Installation complete!
-echo To use audio2vmd, drag and drop audio to "Audio to VMD" bat file or open for GUI
+echo To use audio2vmd, drag and drop audio to "Audio to VMD" bat file or double-click bat file to open the GUI
 echo Or alternately, activate the virtual environment with:
 echo call audio2vmd\venv\Scripts\activate.bat
 echo then run: cd audio2vmd
