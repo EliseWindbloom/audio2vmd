@@ -1,11 +1,12 @@
 #=======================================
-# audio2vmd version 13.5
+# audio2vmd version 16
 # This script automatically converts a audio file to a vmd lips data file
 #=======================================
 # Created by Elise Windbloom
 # Loosely based on original c# Lipsyncloid plugin for MMM by Nawota 
 # Inspired by original lipsync video guide by Vayanis
 import os
+import re
 import sys
 import time
 import struct
@@ -14,8 +15,9 @@ from pathlib import Path
 import numpy as np
 from scipy.io import wavfile
 from scipy.signal import spectrogram
-from spleeter.separator import Separator
-from spleeter.audio.adapter import AudioAdapter
+import torch
+import torchaudio
+from openunmix.predict import separate
 from pydub import AudioSegment
 import yaml
 from collections import OrderedDict
@@ -326,20 +328,79 @@ def extract_vocals(audio_path, wav_path):
         if not os.path.exists(process_audio_dir):
             os.makedirs(process_audio_dir)
 
-        audio_adapter = AudioAdapter.default()
-        waveform, sample_rate = audio_adapter.load(audio_path)
-
-        separator = Separator("spleeter:2stems")
-        prediction = separator.separate(waveform)
-
-        vocals = prediction["vocals"]
-
-        # Save as WAV using Spleeter's default settings
-        audio_adapter.save(wav_path, vocals, sample_rate)
-
-        #del separator  # Clear the separator object
-        #del prediction  # Clear the prediction dictionary
-        #del vocals  # Clear the vocals array
+        # Check if CUDA is available
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        print(f"Using device: {device}")
+        
+        # First try loading with torchaudio
+        try:
+            audio, sample_rate = torchaudio.load(audio_path)
+        except:
+            # If torchaudio fails, try loading with pydub and converting
+            print("Using pydub for audio loading (this is normal, both methods work equally well)...")
+            audio_segment = AudioSegment.from_file(audio_path)
+            
+            # Convert to numpy array
+            samples = np.array(audio_segment.get_array_of_samples())
+            
+            # Convert to float32 and normalize
+            if audio_segment.sample_width > 1:
+                samples = samples.astype(np.float32) / (2**(8 * audio_segment.sample_width - 1))
+            else:
+                samples = samples.astype(np.float32) / 255.0
+            
+            # Handle stereo
+            if audio_segment.channels == 2:
+                samples = samples.reshape((-1, 2))
+            
+            # Convert to torch tensor
+            audio = torch.from_numpy(samples)
+            if audio.dim() == 1:
+                audio = audio.unsqueeze(0)  # Add channel dimension
+            elif audio.dim() == 2 and audio.shape[1] == 2:
+                audio = audio.t()  # Convert to [channels, samples] format
+            
+            sample_rate = audio_segment.frame_rate
+            
+        # Move audio to device
+        audio = audio.to(device)
+        
+        # Separate vocals using Open-Unmix
+        separated = separate(
+            audio,
+            rate=sample_rate,
+            model_str_or_path="umxl",
+            targets=["vocals"],
+            residual=True,
+            device=device
+        )
+        
+        # Get vocals and convert back to CPU if needed
+        vocals = separated["vocals"].squeeze(0).cpu().numpy()
+        
+        # Convert to 16-bit PCM and scale appropriately
+        vocals = np.clip(vocals * 32768, -32768, 32767).astype(np.int16)
+        
+        # Create AudioSegment from numpy array
+        if vocals.ndim == 1:
+            # Mono audio
+            audio_segment = AudioSegment(
+                vocals.tobytes(), 
+                frame_rate=sample_rate,
+                sample_width=2,  # 16-bit
+                channels=1
+            )
+        else:
+            # Stereo audio
+            audio_segment = AudioSegment(
+                vocals.T.tobytes(), 
+                frame_rate=sample_rate,
+                sample_width=2,  # 16-bit
+                channels=vocals.shape[0]
+            )
+        
+        # Export as WAV
+        audio_segment.export(wav_path, format="wav")
 
         print(f"Vocals separated and saved to: {wav_path}")
         return wav_path
@@ -394,26 +455,62 @@ def get_audio_duration(audio_path, return_as_text=False):
 
 def analyze_audio_for_vocals(audio_path):
     #check if audio has voice in it, and also if it's a vocals-only file
-    separator = Separator('spleeter:2stems')
-    audio_loader = AudioAdapter.default()
-    waveform, _ = audio_loader.load(audio_path)
-    prediction = separator.separate(waveform)
-    vocals = prediction['vocals']
-    accompaniment = prediction['accompaniment']
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
+    # First try loading with torchaudio
+    try:
+        audio, sample_rate = torchaudio.load(audio_path)
+    except:
+        # If torchaudio fails, try loading with pydub and converting
+        print("Torchaudio failed to load audio for analysis, trying pydub...")
+        print("Using pydub for audio analysis instead of Torchaudio (this is normal, both methods work well)...")
+        audio_segment = AudioSegment.from_file(audio_path)
+        # Convert to numpy array
+        samples = np.array(audio_segment.get_array_of_samples())
+        
+        # Convert to float32 and normalize
+        if audio_segment.sample_width > 1:
+            samples = samples.astype(np.float32) / (2**(8 * audio_segment.sample_width - 1))
+        else:
+            samples = samples.astype(np.float32) / 255.0
+        
+        # Handle stereo
+        if audio_segment.channels == 2:
+            samples = samples.reshape((-1, 2))
+        
+        # Convert to torch tensor
+        audio = torch.from_numpy(samples)
+        if audio.dim() == 1:
+            audio = audio.unsqueeze(0)  # Add channel dimension
+        elif audio.dim() == 2 and audio.shape[1] == 2:
+            audio = audio.t()  # Convert to [channels, samples] format
+        
+        sample_rate = audio_segment.frame_rate
+
+    audio = audio.to(device)
+    
+    # Separate using Open-Unmix
+    separated = separate(
+        audio,
+        rate=sample_rate,
+        model_str_or_path="umxl",
+        targets=["vocals"],
+        residual=True,
+        device=device
+    )
+    
+    # Get vocals and accompaniment
+    vocals = separated["vocals"].cpu().numpy()
+    accompaniment = separated["residual"].cpu().numpy()
+    
+    # Calculate energies
     vocal_energy = np.mean(np.abs(vocals))
     accompaniment_energy = np.mean(np.abs(accompaniment))
     
-    # Check if there are significant vocals
-    has_vocals = vocal_energy > 0.01  # Adjust this threshold as needed
+    # Determine if the audio has vocals and if it's vocals-only
+    has_vocals = vocal_energy > 0.001  # Threshold for detecting presence of vocals
+    is_vocals_only = vocal_energy > (accompaniment_energy * 2)  # If vocals are twice as prominent as accompaniment
     
-    # Check if it's vocals-only (very low accompaniment energy compared to vocals)
-    is_vocals_only = has_vocals and (accompaniment_energy < 0.1 * vocal_energy)  # Adjust this ratio as needed
-    
-    #del separator  # Clear the separator object reference 
-    #del prediction  # Clear the prediction dictionary reference 
-    #del vocals  # Clear the vocals array reference 
-    #del accompaniment  # Clear the accompaniment array reference 
     return has_vocals, is_vocals_only
 
 def detect_audio_format(audio_path):
@@ -449,51 +546,160 @@ def convert_audio_to_wav(audio_path, output_wav_path):
     # Print confirmation message
     print(f"-Audio converted to wav format. Saved at: {output_wav_path}")
 
-def represent_commented_config(dumper, data):
-    return dumper.represent_mapping('tag:yaml.org,2002:map', data.items())
+def process_audio_frames(f, Sxx, batch_size=1000):
+    """Generator function to process audio frames in batches"""
+    for batch_start in range(0, Sxx.shape[1], batch_size):
+        batch_end = min(batch_start + batch_size, Sxx.shape[1])
+        batch_Sxx = Sxx[:, batch_start:batch_end]
+        yield batch_start, batch_end, batch_Sxx, f
 
-yaml.add_representer(CommentedConfig, represent_commented_config)
-
-def load_config(config_file='config.yaml'):
-    """Load configuration from a YAML file."""
-    print(f"Attempting to load configuration from: {config_file}")
+def audio_to_vmd(input_audio, vmd_file, model_name, config):
+    """Convert any audio file to VMD file"""
+    # Extract vocals and save as a temporary WAV file
+    # Create the new filename by appending "_vocals_only" before the extension
+    temp_base_name, ext = os.path.splitext(os.path.basename(input_audio))
+    temp_dironly = os.path.dirname(os.path.abspath(input_audio))
+    temp_dironly_output = os.path.dirname(os.path.abspath(vmd_file))
+    temp_wav = input_audio
+    temp_vocals_only_file = ""
     
-    default_config = CommentedConfig()
-    default_config['model_name'] = ("Model", "Name of the model the VMD is for. (max length of 20 characters)")
-    default_config['a_weight_multiplier'] = (1.2, "Intensity of the 'あ' (A) sound. Increase to make mouth generally open bigger.")
-    default_config['i_weight_multiplier'] = (0.8, "Intensity of the 'い' (I) sound. Increase to get general extra width mouth when talking.")
-    default_config['o_weight_multiplier'] = (1.1, "Intensity of the 'お' (O) sound. Increase to get more of a general wide medium circle shape.")
-    default_config['u_weight_multiplier'] = (0.9, "Intensity of the 'う' (U) sound. Increase to get more general small circle-shaped mouth.")
-    default_config['max_duration'] = (300, "Maximum duration for splitting audio in seconds. Set to 0 to disable splitting.")
-    default_config['optimize_vmd'] = (True, "Automatically optimize the VMD file True, highly recommended to keep this true.")
-    default_config['extras_optimize_vmd_bone_position_tolerance'] = (0.005, "For Optimizing a VMD (in Extras) with bone position data. Use a tolerance of 0.001 for very high fidelity, but it might not reduce the file size much.")
-    default_config['extras_optimize_vmd_bone_rotation_tolerance'] = (0.005, "For Optimizing a VMD (in Extras) with bone rotation data. Use a tolerance of 0.001 for very high fidelity, but it might not reduce the file size much.")
+    # Get the vocal separation mode from config
+    separate_vocals_mode = config.get('separate_vocals', 'automatic')
+    print(f"separate_vocals_mode = {separate_vocals_mode}")
+    temp_base_name = os.path.splitext(os.path.basename(input_audio))[0]
+    if re.search(r'_vocals_only(_part\d+)?$', temp_base_name):
+        # filename ends with _vocals_only or _vocals_only_partN, so already is vocals_only, skip
+        input_audio_has_vocals = True
+        input_audio_is_vocals_only = True
+    elif separate_vocals_mode == 'automatic':
+        #check if audio is already voice only
+        input_audio_has_vocals, input_audio_is_vocals_only = analyze_audio_for_vocals(os.path.abspath(input_audio))
+    elif separate_vocals_mode == 'always':
+        input_audio_has_vocals = True
+        input_audio_is_vocals_only = False
+    else:  # 'never' mode
+        input_audio_has_vocals = True
+        input_audio_is_vocals_only = True
+    
+    #Prints audio duration information
+    temp_duration = get_audio_duration(input_audio, True)
+    print(f"Audio filename: {os.path.basename(input_audio)}")
+    print(f"Audio duration: {temp_duration}")
+    if not input_audio_has_vocals and separate_vocals_mode == 'automatic':
+        # Didn't detect any vocals, but will still attempt to convert
+        print("Warning: No vocals detected input audio file!!")
+    if not input_audio_is_vocals_only and input_audio_has_vocals:
+        # extracts vocals from audio file, this also converts the audio to a wav
+        temp_wav = f"{temp_base_name}_vocals_only.wav"
+        temp_wav_basename = temp_wav
+        temp_wav = os.path.join(temp_dironly_output, temp_wav) # full path
+        if not os.path.exists(temp_wav):
+            print(f"-Non-vocal elements detected along with vocals in audio file, will extract vocals to wav named: {temp_wav_basename}")
+            extract_vocals(input_audio, temp_wav) # saves as a vocals-only wav file
+        else:
+            print(f"-Non-vocal elements detected along with vocals in audio file, will use the name-matching already existing wav file instead: {temp_wav_basename}")
+        temp_vocals_only_file = temp_wav # used to tell it to use voicals-only if non-wav audio is detected
+    elif input_audio_has_vocals and input_audio_is_vocals_only:
+        print(f"-Audio file detected as containing only vocals, so no vocal separation needed for {os.path.basename(input_audio)}")
 
-    if os.path.exists(config_file):
-        print(f"Configuration file found. Loading...")
-        with open(config_file, 'r', encoding='utf-8') as f:
-            loaded_config = yaml.safe_load(f)
-        if loaded_config is None:
-            print("Warning: Configuration file is empty or invalid. Using default configuration.")
-            loaded_config = {k: default_config[k] for k in default_config}
-        print(f"Loaded configuration: {loaded_config}")
-        return loaded_config
+    if detect_audio_format(os.path.abspath(input_audio)) != "wav":
+        # Audio was not given as a wav, will convert to wav format needed by wav2vmd script(this is faster than vocals extraction)
+        # This will create a wav even if you already a vocals-only wav. This is so you'll have a full wav file that you can load in MMD.
+        temp_wav = f"{temp_base_name}.wav"
+        temp_wav_basename = temp_wav
+        
+        temp_wav = os.path.join(temp_dironly_output, temp_wav)
+        if not os.path.exists(temp_wav):
+            print(f"-Audio file not in required wav format for MMD, will convert to wav named: {temp_wav_basename}")
+            convert_audio_to_wav(input_audio, temp_wav)
+        else:
+            print(f"-Audio file not in required wav format for MMD, will use the name-matching already existing wav file instead: {temp_wav_basename}")
+        if temp_vocals_only_file:
+            temp_wav = temp_vocals_only_file
     else:
-        print(f"Configuration file not found. Creating default configuration...")
-        with open(config_file, 'w', encoding='utf-8') as f:
-            f.write("# Configuration file for audio2vmd\n")
-            f.write("# Adjust these values to fine-tune the lip sync:\n\n")
-            for key, (value, comment) in default_config.items():
-                f.write(f"{key}: {value}  # {comment}\n")
+        print(f"-Audio file already in wav format, no conversion needed.")
 
-        print(f"Default configuration created and saved to: {config_file}")
-        return {k: default_config[k] for k in default_config}
+    print("Converting Audio to VMD...")
 
-# Add this function to your main script
-def print_config(config):
-    print("Current configuration:")
-    for key, value in config.items():
-        print(f"  {key}: {value}")
+    # Use memory-mapped file reading
+    sample_rate, audio = wavfile.read(temp_wav, mmap=True)
+    audio = np.mean(audio, axis=1) if len(audio.shape) > 1 else audio
+    
+    # Compute spectrogram
+    frame_rate = 30
+    window_size = int(sample_rate / frame_rate)
+    f, t, Sxx = spectrogram(audio, fs=sample_rate, nperseg=window_size, noverlap=0)
+
+    # Define vowel frequency ranges
+    vowel_ranges = {
+        'あ': (800, 1200),
+        'い': (2300, 2700),
+        'う': (300, 700),
+        'お': (500, 900)
+    }
+
+    vmd = VMDFile(model_name)
+    smoothing_window = 5
+    vowel_weights_history = []
+    max_Sxx = np.max(Sxx)  # Calculate max once
+
+    # Process frames using generator
+    for batch_start, batch_end, batch_Sxx, f in process_audio_frames(f, Sxx):
+        for frame in range(batch_start, batch_end):
+            rel_frame = frame - batch_start
+            
+            # Calculate vowel weights exactly as before
+            vowel_weights = {v: np.mean(batch_Sxx[np.argmin(np.abs(f - low)):np.argmin(np.abs(f - high)), rel_frame])
+                           for v, (low, high) in vowel_ranges.items()}
+
+            # Normalize weights
+            total_weight = sum(vowel_weights.values())
+            if total_weight > 0:
+                vowel_weights = {v: w / total_weight for v, w in vowel_weights.items()}
+
+            # Apply smoothing
+            vowel_weights_history.append(vowel_weights)
+            if len(vowel_weights_history) > smoothing_window:
+                vowel_weights_history.pop(0)
+            smoothed_weights = {v: np.mean([w[v] for w in vowel_weights_history]) for v in vowel_weights}
+
+            energy = np.sum(batch_Sxx[:, rel_frame])
+            is_speech = energy > 0.01 * max_Sxx
+
+            # Use the config in the vowel weight adjustment
+            if is_speech:
+                energy_scale = np.clip(energy / max_Sxx, 0, 1) ** 0.5
+                adjusted_weights = adjust_vowel_weights(smoothed_weights, config)
+
+                for vowel, weight in adjusted_weights.items():
+                    scaled_weight = min(weight * energy_scale, 1.0)
+                    vmd.add_morph_frame(vowel, frame, scaled_weight)
+            else:
+                for vowel in vowel_weights:
+                    vmd.add_morph_frame(vowel, frame, 0)
+
+        # Clean up batch memory
+        del batch_Sxx
+
+    # Clean up memory
+    del audio
+    del Sxx
+    
+    if config.get('optimize_vmd', True):
+        optimize_vmd_data(vmd)
+    vmd.save(vmd_file)
+    print(f"VMD saved at: {os.path.abspath(vmd_file)}")
+
+def adjust_vowel_weights(weights, config):
+    """Adjust vowel weights for more natural mouth movements using config values."""
+    adjusted = weights.copy()
+    adjusted['あ'] *= config['a_weight_multiplier'] if adjusted['あ'] > 0.3 else 1 # あ A
+    adjusted['お'] *= config['o_weight_multiplier'] if adjusted['お'] > 0.3 else 1 # お O
+    adjusted['い'] *= config['i_weight_multiplier'] # い I #GET extra width by adding to this number
+    adjusted['う'] *= config['u_weight_multiplier'] # う U
+
+    total = sum(adjusted.values())
+    return {v: w / total for v, w in adjusted.items()}
 
 def split_audio(audio_path, output_dir="", secondary_audio_path="", original_is_wav_filetype=True, max_duration=300, silence_threshold=-60, min_silence_length=300):
     """
@@ -684,9 +890,28 @@ def process_single_file(input_file, output_dir, model_name, config, send_lips_da
         vmd_optimized.save(output_file)# Save the modified VMD file
         print(f"Optimized VMD file saved as: {output_file}")
         return
+
     input_is_wav_filetype = False
     dependent_audio_to_split = ""
-    input_audio_has_vocals, input_audio_is_vocals_only = analyze_audio_for_vocals(input_file)
+    
+    # Get the vocal separation mode from config
+    separate_vocals_mode = config.get('separate_vocals', 'automatic')
+    print(f"separate_vocals_mode = {separate_vocals_mode}")
+
+    temp_base_name = os.path.splitext(os.path.basename(input_file))[0]
+    if re.search(r'_vocals_only(_part\d+)?$', temp_base_name):
+        # filename ends with _vocals_only or _vocals_only_partN, so already is vocals_only, skip
+        input_audio_has_vocals = True
+        input_audio_is_vocals_only = True
+    elif separate_vocals_mode == 'automatic':
+        input_audio_has_vocals, input_audio_is_vocals_only = analyze_audio_for_vocals(input_file)
+    elif separate_vocals_mode == 'always':
+        input_audio_has_vocals = True
+        input_audio_is_vocals_only = False
+    else:  # 'never'
+        input_audio_has_vocals = True
+        input_audio_is_vocals_only = True
+
     if not input_audio_is_vocals_only and input_audio_has_vocals:
         vocals_file = os.path.join(output_dir, f"{os.path.splitext(os.path.basename(input_file))[0]}_vocals_only.wav")
         dependent_audio_to_split = input_file
@@ -697,6 +922,7 @@ def process_single_file(input_file, output_dir, model_name, config, send_lips_da
             print(f"Using existing vocals file: {vocals_file}")
     else:
         vocals_file = input_file
+
     if get_file_extension(input_file).lower() == "wav":
         input_is_wav_filetype = True
 
@@ -789,127 +1015,6 @@ def adjust_vowel_weights(weights, config):
     total = sum(adjusted.values())
     return {v: w / total for v, w in adjusted.items()}
 
-def audio_to_vmd(input_audio, vmd_file, model_name, config):
-    """Convert any audio file to VMD file"""
-    # Extract vocals and save as a temporary WAV file
-    # Create the new filename by appending "_vocals_only" before the extension
-    temp_base_name, ext = os.path.splitext(os.path.basename(input_audio))
-    temp_dironly = os.path.dirname(os.path.abspath(input_audio))
-    temp_dironly_output = os.path.dirname(os.path.abspath(vmd_file))
-    temp_wav = input_audio
-    temp_vocals_only_file = ""
-    
-    #check if audio is already voice only
-    input_audio_has_vocals, input_audio_is_vocals_only = analyze_audio_for_vocals(os.path.abspath(input_audio))
-    #memory usage test force to say it's vocals only
-    #input_audio_has_vocals = True 
-    #input_audio_is_vocals_only = True
-    #Prints audio duration information
-    temp_duration = get_audio_duration(input_audio, True)
-    print(f"Audio filename: {os.path.basename(input_audio)}")
-    print(f"Audio duration: {temp_duration}")
-    if not input_audio_has_vocals:
-        # Didn't detect any vocals, but will still attempt to convert
-        print("Warning: No vocals detected input audio file!!")
-    if not input_audio_is_vocals_only and input_audio_has_vocals:
-        # extracts vocals from audio file, this also converts the audio to a wav
-        temp_wav = f"{temp_base_name}_vocals_only.wav"
-        temp_wav_basename = temp_wav
-        temp_wav = os.path.join(temp_dironly_output, temp_wav) # full path
-        if not os.path.exists(temp_wav):
-            print(f"-Non-vocal elements detected along with vocals in audio file, will extract vocals to wav named: {temp_wav_basename}")
-            extract_vocals(input_audio, temp_wav) # saves as a vocals-only wav file
-        else:
-            print(f"-Non-vocal elements detected along with vocals in audio file, will use the name-matching already existing wav file instead: {temp_wav_basename}")
-        temp_vocals_only_file = temp_wav # used to tell it to use voicals-only if non-wav audio is detected
-    elif input_audio_has_vocals and input_audio_is_vocals_only:
-        print(f"-Audio file detected as containing only vocals, so no vocal separation needed for {os.path.basename(input_audio)}")
-
-    if detect_audio_format(os.path.abspath(input_audio)) != "wav":
-        # Audio was not given as a wav, will convert to wav format needed by wav2vmd script(this is faster than vocals extraction)
-        # This will create a wav even if you already a vocals-only wav. This is so you'll have a full wav file that you can load in MMD.
-        temp_wav = f"{temp_base_name}.wav"
-        temp_wav_basename = temp_wav
-        
-        temp_wav = os.path.join(temp_dironly_output, temp_wav)
-        if not os.path.exists(temp_wav):
-            print(f"-Audio file not in required wav format for MMD, will convert to wav named: {temp_wav_basename}")
-            convert_audio_to_wav(input_audio, temp_wav)
-        else:
-            print(f"-Audio file not in required wav format for MMD, will use the name-matching already existing wav file instead: {temp_wav_basename}")
-        if temp_vocals_only_file:
-            temp_wav = temp_vocals_only_file
-    else:
-        print(f"-Audio file already in wav format, no conversion needed.")
-
-    print("Converting Audio to VMD...")
-
-    # Use memory-mapped file reading
-    sample_rate, audio = wavfile.read(temp_wav, mmap=True)
-    audio = np.mean(audio, axis=1) if len(audio.shape) > 1 else audio
-    max_abs_value = np.max(np.abs(audio))
-    
-    # Compute spectrogram
-    frame_rate = 30
-    window_size = int(sample_rate / frame_rate)
-    f, t, Sxx = spectrogram(audio, fs=sample_rate, nperseg=window_size, noverlap=0)
-
-    # Define vowel frequency ranges
-    vowel_ranges = {
-        'あ': (800, 1200),
-        'い': (2300, 2700),
-        'う': (300, 700),
-        'お': (500, 900)
-    }
-
-    vmd = VMDFile(model_name)
-    smoothing_window = 5
-    vowel_weights_history = []
-
-    # Process frames in batches
-    batch_size = 1000  # Adjust this value based on available memory
-    for batch_start in range(0, Sxx.shape[1], batch_size):
-        batch_end = min(batch_start + batch_size, Sxx.shape[1])
-        batch_Sxx = Sxx[:, batch_start:batch_end]
-
-        for frame in range(batch_start, batch_end):
-            rel_frame = frame - batch_start
-            # Calculate vowel weights
-            vowel_weights = {v: np.mean(batch_Sxx[np.argmin(np.abs(f - low)):np.argmin(np.abs(f - high)), rel_frame])
-                             for v, (low, high) in vowel_ranges.items()}
-
-            # Normalize weights
-            total_weight = sum(vowel_weights.values())
-            if total_weight > 0:
-                vowel_weights = {v: w / total_weight for v, w in vowel_weights.items()}
-
-            # Apply smoothing
-            vowel_weights_history.append(vowel_weights)
-            if len(vowel_weights_history) > smoothing_window:
-                vowel_weights_history.pop(0)
-            smoothed_weights = {v: np.mean([w[v] for w in vowel_weights_history]) for v in vowel_weights}
-
-            energy = np.sum(batch_Sxx[:, rel_frame])
-            is_speech = energy > 0.01 * np.max(Sxx)
-
-            # Use the config in the vowel weight adjustment
-            # Detect speech and adjust weights
-            if is_speech:
-                energy_scale = np.clip(energy / np.max(Sxx), 0, 1) ** 0.5
-                adjusted_weights = adjust_vowel_weights(smoothed_weights, config)
-
-                for vowel, weight in adjusted_weights.items():
-                    scaled_weight = min(weight * energy_scale, 1.0)
-                    vmd.add_morph_frame(vowel, frame, scaled_weight)
-            else:
-                for vowel in vowel_weights:
-                    vmd.add_morph_frame(vowel, frame, 0)
-
-    if config.get('optimize_vmd', True):
-        optimize_vmd_data(vmd)
-    vmd.save(vmd_file)
-    print(f"VMD saved at: {os.path.abspath(vmd_file)}")
-
 def get_file_extension(filepath):
     # Returns the file extension of the given filepath string without the leading period.
     _, extension = os.path.splitext(filepath)
@@ -969,6 +1074,55 @@ def str2bool(v):
     else:
         raise argparse.ArgumentTypeError('Boolean value expected.')
 
+import yaml
+import json
+
+def represent_commented_config(dumper, data):
+    return dumper.represent_mapping('tag:yaml.org,2002:map', data.items())
+
+yaml.add_representer(OrderedDict, represent_commented_config)
+
+def load_config(config_file='config.yaml'):
+    """Load configuration from a YAML file."""
+    print(f"Attempting to load configuration from: {config_file}")
+    
+    default_config = OrderedDict()
+    default_config['model_name'] = ("Model", "Name of the model the VMD is for. (max length of 20 characters)")
+    default_config['a_weight_multiplier'] = (1.2, "Intensity of the 'あ' (A) sound. Increase to make mouth generally open bigger.")
+    default_config['i_weight_multiplier'] = (0.8, "Intensity of the 'い' (I) sound. Increase to get general extra width mouth when talking.")
+    default_config['o_weight_multiplier'] = (1.1, "Intensity of the 'お' (O) sound. Increase to get more of a general wide circle shape.")
+    default_config['u_weight_multiplier'] = (0.9, "Intensity of the 'う' (U) sound. Increase to get more general small circle-shaped mouth.")
+    default_config['max_duration'] = (300, "Maximum duration for splitting audio in seconds. Set to 0 to disable splitting.")
+    default_config['optimize_vmd'] = (True, "Automatically optimize the VMD file True, highly recommended to keep this true.")
+    default_config['extras_optimize_vmd_bone_position_tolerance'] = (0.005, "For Optimizing a VMD (in Extras) with bone position data. Use a tolerance of 0.001 for very high fidelity, but it might not reduce the file size much.")
+    default_config['extras_optimize_vmd_bone_rotation_tolerance'] = (0.005, "For Optimizing a VMD (in Extras) with bone rotation data. Use a tolerance of 0.001 for very high fidelity, but it might not reduce the file size much.")
+    default_config['separate_vocals'] = ('automatic', 'Vocal separation mode. Options: automatic, always, never')
+
+    if os.path.exists(config_file):
+        print(f"Configuration file found. Loading...")
+        with open(config_file, 'r', encoding='utf-8') as f:
+            loaded_config = yaml.safe_load(f)
+        if loaded_config is None:
+            print("Warning: Configuration file is empty or invalid. Using default configuration.")
+            loaded_config = {k: v[0] if isinstance(v, tuple) else v for k, v in default_config.items()}
+        print(f"Loaded configuration: {loaded_config}")
+        return loaded_config
+    else:
+        print(f"Configuration file not found. Creating default configuration...")
+        with open(config_file, 'w', encoding='utf-8') as f:
+            f.write("# Configuration file for audio2vmd\n")
+            f.write("# Adjust these values to fine-tune the lip sync:\n\n")
+            for key, (value, comment) in default_config.items():
+                f.write(f"{key}: {value}  # {comment}\n")
+
+        print(f"Default configuration created and saved to: {config_file}")
+        return {k: v[0] if isinstance(v, tuple) else v for k, v in default_config.items()}
+
+# Add this function to your main script
+def print_config(config):
+    print("Current configuration:")
+    for key, value in config.items():
+        print(f"  {key}: {value}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Convert audio to VMD lip sync data.")
@@ -1101,4 +1255,3 @@ if __name__ == "__main__":
             print(f"Complete! All Audio to VMD conversion completed for {audio_source_files_count} audio files in {format_time(processing_time)}.")
         else:
             print(f"Complete! All Audio to VMD conversion completed in {format_time(processing_time)}.")
-    
