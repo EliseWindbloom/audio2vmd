@@ -107,7 +107,7 @@ To uninstall, simply delete the "audio2vmd" folder
     - Can be set to "automatic", "always", or "never" to choose how audio2vmd separates vocal files.
     - 'automatic' = detect and separate if needed
     - 'always' = skip detection and always separate all audio files
-    - 'never' = skip detection and assume file is already vocals-only).
+    - 'never' = skip detection and assume file is already vocals-only.
     - "automatic" is recommended if any of your files have music/background noise, otherwise "never" is recommended for a additional big speed boost.
 
 #### Versions 14 & 15 were for research and were developmental
