@@ -103,8 +103,8 @@ To uninstall, simply delete the "audio2vmd" folder
   - Huge speed boost, was over twice as fast when testing it (an audio file that took 1min6secs to convert, now takes about 31seconds to convert)
   - Significant code optimization to reduce memory usage without messing up the vmd output
   - Should no longer require a paging file or a lot of memory to use
-  - "Seperate Vocals" setting added to audio2vmd.py along with GUI and config file:
-    - Can be set to "automatic", "always", or "never" to choose how audio2vmd seperates vocal files.
+  - "Separate Vocals" setting added to audio2vmd.py along with GUI and config file:
+    - Can be set to "automatic", "always", or "never" to choose how audio2vmd separates vocal files.
     - 'automatic' = detect and separate if needed
     - 'always' = skip detection and always separate all audio files
     - 'never' = skip detection and assume file is already vocals-only).
