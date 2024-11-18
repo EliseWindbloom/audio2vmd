@@ -2,6 +2,7 @@
 # Adjust these values to fine-tune the lip sync:
 
 model_name: Model  # Name of the model the VMD is for. (max length of 20 characters)
+separate_vocals: automatic  # Controls vocal separation behavior: 'automatic' (detect and separate if needed), 'always' (skip detection and always separate), or 'never' (skip detection and assume file is already vocals-only). 'automatic' recommended if any of your files have music/background noise, otherwise 'never' is recommended for a big speed boost.
 a_weight_multiplier: 1.2  # Intensity of the 'あ' (A) sound. Increase to make mouth generally open bigger.
 i_weight_multiplier: 0.8  # Intensity of the 'い' (I) sound. Increase to get general extra width mouth when talking.
 o_weight_multiplier: 1.1  # Intensity of the 'お' (O) sound. Increase to get more of a general wide medium circle shape.
