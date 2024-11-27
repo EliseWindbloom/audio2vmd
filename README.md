@@ -52,7 +52,7 @@ cd audio2vmd
 python -m venv venv
 call venv\Scripts\activate.bat
 pip install torch==2.5.1+cpu torchvision==0.20.1+cpu torchaudio==2.5.1+cpu --index-url https://download.pytorch.org/whl/cpu
-pip install openunmix==1.3.0 numpy==1.26.3 scipy==1.14.1 pyyaml==6.0.1 pydub==0.25.1 PyYAML==6.0.1 tqdm==4.66.4 psutil==6.0.0
+pip install openunmix==1.3.0 numpy==1.26.3 scipy==1.14.1 pyyaml==6.0.1 pydub==0.25.1 tqdm==4.66.4 psutil==6.0.0
 cd..
 ```
 
