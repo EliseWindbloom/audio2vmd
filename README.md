@@ -93,7 +93,7 @@ To uninstall, simply delete the "audio2vmd" folder
   ```
 
 ## GUI Preview / Video Demonstration
-- Video: "[audio2vmd demonstration](https://vimeo.com/989158449)"
+- Video (link currently down, i'll try to reupload video and a tutorial sometime in the future): "[audio2vmd demonstration](https://vimeo.com/989158449)" 
   
 ![gui1](audio2vmd/img/gui1.png)
 
