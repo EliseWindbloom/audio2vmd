@@ -1,5 +1,5 @@
 #=======================================
-# audio2vmd version 16
+# audio2vmd version 16.1
 # This script automatically converts a audio file to a vmd lips data file
 #=======================================
 # Created by Elise Windbloom
@@ -339,6 +339,13 @@ def extract_vocals(audio_path, wav_path):
             # If torchaudio fails, try loading with pydub and converting
             print("Using pydub for audio loading (this is normal, both methods work equally well)...")
             audio_segment = AudioSegment.from_file(audio_path)
+
+            # Set the frame rate to 44100Hz (and sample width to 16-bit) if needed
+            if audio_segment.frame_rate != 44100:
+                #print(f"Sample rate is {audio_segment.frame_rate}, resampling to 44100Hz 16-bit")
+                audio_segment = audio_segment.set_frame_rate(44100).set_sample_width(2)
+            #else:
+            #    print(f"Sample rate is already 44100Hz, so no need to resample")
             
             # Convert to numpy array
             samples = np.array(audio_segment.get_array_of_samples())
@@ -465,6 +472,7 @@ def analyze_audio_for_vocals(audio_path):
         print("Torchaudio failed to load audio for analysis, trying pydub...")
         print("Using pydub for audio analysis instead of Torchaudio (this is normal, both methods work well)...")
         audio_segment = AudioSegment.from_file(audio_path)
+
         # Convert to numpy array
         samples = np.array(audio_segment.get_array_of_samples())
         
@@ -537,10 +545,14 @@ def convert_audio_to_wav(audio_path, output_wav_path):
     # Load the audio file
     audio = AudioSegment.from_file(audio_path)
     
-    # Set the frame rate to 48kHz and sample width to 16-bit
-    #audio = audio.set_frame_rate(48000).set_sample_width(2)
+    # Set the frame rate to 44100Hz (and sample width to 16-bit) if needed
+    if audio.frame_rate != 44100:
+        #print(f"Sample rate is {audio.frame_rate}, resampling to 44100Hz 16-bit")
+        audio = audio.set_frame_rate(44100).set_sample_width(2)
+    # else:
+    #     print(f"Sample rate is already 44100Hz, so no need to resample")
 
-    # Export the audio to a WAV file
+    # Export the audio to a WAV file, explicitly setting the frame rate
     audio.export(output_wav_path, format="wav")
 
     # Print confirmation message
@@ -737,6 +749,12 @@ def split_audio(audio_path, output_dir="", secondary_audio_path="", original_is_
     split_audio("path/to/audio.mp3", output_dir="path/to/output", max_duration=300, silence_threshold=-45, min_silence_length=500)
     """
     audio = AudioSegment.from_file(audio_path)
+    # Set the frame rate to 44100Hz (and sample width to 16-bit) if needed
+    if audio.frame_rate != 44100:
+        #print(f"Sample rate is {audio.frame_rate}, resampling to 44100Hz 16-bit")
+        audio = audio.set_frame_rate(44100).set_sample_width(2)
+    #else:
+    #    print(f"Sample rate is already 44100Hz, so no need to resample")
     if not output_dir:
         output_dir = os.path.dirname(audio_path)
     os.makedirs(output_dir, exist_ok=True)
@@ -757,6 +775,12 @@ def split_audio(audio_path, output_dir="", secondary_audio_path="", original_is_
 
     if secondary_audio_path != "":
         secondary_audio = AudioSegment.from_file(secondary_audio_path)
+        # Set the frame rate to 44100Hz (and sample width to 16-bit) if needed
+        if secondary_audio.frame_rate != 44100:
+            #print(f"Sample rate is {secondary_audio.frame_rate}, resampling to 44100Hz 16-bit")
+            secondary_audio = secondary_audio.set_frame_rate(44100).set_sample_width(2)
+        #else:
+        #    print(f"Sample rate is already 44100Hz, so no need to resample")
         secondary_base_name = os.path.splitext(os.path.basename(secondary_audio_path))[0]
 
     while start < len(audio):
@@ -1252,6 +1276,6 @@ if __name__ == "__main__":
         end_time = time.time()
         processing_time = end_time - start_time
         if audio_source_files_count>1:
-            print(f"Complete! All Audio to VMD conversion completed for {audio_source_files_count} audio files in {format_time(processing_time)}.")
+            print(f"Complete! All Audio to VMD conversions completed for {audio_source_files_count} audio files in {format_time(processing_time)}.")
         else:
-            print(f"Complete! All Audio to VMD conversion completed in {format_time(processing_time)}.")
+            print(f"Complete! All Audio to VMD conversion(s) completed in {format_time(processing_time)}.")
