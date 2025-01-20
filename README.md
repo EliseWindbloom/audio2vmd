@@ -1,4 +1,4 @@
-# audio2vmd (v16)
+# audio2vmd (v16.1)
 Completely automatically convert audio to vmd lips data using python cmd/automatic batch-file, with automatic vocals extraction. Using this, you can make your MMD models lip-sync to any song or speech audio. 
 
 ![topimg](audio2vmd/img/audio2vmd_1.png)
@@ -109,6 +109,13 @@ To uninstall, simply delete the "audio2vmd" folder
     - 'always' = skip detection and always separate all audio files
     - 'never' = skip detection and assume file is already vocals-only
     - "automatic" is recommended if any of your files have music/background noise, otherwise "never" is recommended for a additional big speed boost.
+  
+### New features in version 16.1
+   - Added support for audio files with any sample rate (previously only seem to correctly support 44100Hz)
+   - Automatically and quickly handles sample rate conversion:
+      - Converts input audio to 44100Hz only when needed
+      - Performs conversion in memory for efficiency
+      - Ensures output audio files maintain proper playback speed and duration
 
 #### Versions 14 & 15 were for research and were developmental
 
