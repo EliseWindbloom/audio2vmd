@@ -92,10 +92,27 @@ To uninstall, simply delete the "audio2vmd" folder
   python audio2vmd_gui.py
   ```
 
-## GUI Preview / Video Demonstration
-- Video (link currently down, i'll try to reupload video and a tutorial sometime in the future): "[audio2vmd demonstration](https://vimeo.com/989158449)" 
-  
+## GUI Preview 
 ![gui1](audio2vmd/img/gui1.png)
+
+## Video Demonstration
+<table>
+  <tr>
+    <td align="center" width="700">
+      <video 
+        src="https://github.com/user-attachments/assets/ee2cab55-4ad2-4122-a131-842440b3a475" 
+        controls 
+        style="max-width:100%;">
+      </video>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <em>Video may be compressed by GitHub</em>
+    </td>
+  </tr>
+</table>
+
 
 ## New features in version 16
   - **Optimizations, huge speed improvement and lowering of system requirements**
