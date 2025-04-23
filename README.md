@@ -107,9 +107,6 @@ To uninstall, simply delete the "audio2vmd" folder
     </td>
   </tr>
   <tr>
-    <td align="center">
-      <em>Video may be compressed by GitHub</em>
-    </td>
   </tr>
 </table>
 
