@@ -110,6 +110,8 @@ To uninstall, simply delete the "audio2vmd" folder
   </tr>
 </table>
 
+## Video Tutorial (Youtube)
+[MMD Fully-Automatic Lipsync to Audio File Tutorial (Audio2VMD)](https://www.youtube.com/watch?v=qMZP-_pBaog)
 
 ## New features in version 16
   - **Optimizations, huge speed improvement and lowering of system requirements**
